@@ -1,9 +1,6 @@
 /*
 To do:
-- dat.gui control
-- animation doesn't need to restart always?
-- control for color
-- improve color changes based on turbulence (lighten only?)
+- control for particle color / frozen color
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
 - toggle for edge thresholds
 - can the particle speed be variable (it speeds up as it approaches an edge, and then speeds up as it leaves an edge?)
@@ -11,11 +8,12 @@ To do:
 - improve default parameters
 - use static edge threshold (controllable with GUI)
 - fire a new wave based on pixel distance from previous wave (rather than time)
-- Toggle to show edge thresholds upon startup or not
+- Toggle to show all image edge thresholds upon startup or not
 - default image
 - readme / github / description
 - about / footer divs
 - video and image export
+- canvas should be resized upon startup
 */
 
 // Canvas setup
@@ -43,13 +41,132 @@ const MIN_THRESHOLD = 50;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
 
-// Animation parameters
-let WAVE_INTERVAL = 1500;
-let NUM_PARTICLES = 150;
-let ANIMATION_SPEED = 0.3;
-let frozenProbability = 0.5;
-let MAX_TURBULENCE = 1.0;
-let BASE_PARTICLE_SIZE = 1.5;
+// Configuration
+let gui = new dat.gui.GUI( { autoPlace: false } );
+//gui.close();
+let guiOpenToggle = true;
+const CONFIG = {
+    animationSpeed: { value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
+    waveInterval: { value: 1500, min: 500, max: 3000, step: 100 },
+    numParticles: { value: 150, min: 50, max: 300, step: 1 },
+    frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
+    turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
+    particleSize: { value: 1, min: 0.5, max: 3.0, step: 0.1 },
+    selectedPalette: 'galaxy',
+    backgroundColor: '#0f0d2e',
+    particleColor: '#dda290',
+    IS_PLAYING: true
+};
+
+function initGUI() {
+    
+  // Initialize controllers object
+  window.guiControllers = {};
+
+  // Add other controls
+  Object.entries(CONFIG).forEach(([key, value]) => {
+      if (typeof value === 'object' && !Array.isArray(value)) {
+          window.guiControllers[key] = gui.add(CONFIG[key], 'value', value.min, value.max, value.step)
+              .name(key.replace(/_/g, ' '))
+              .onChange(v => updateConfig(key, v));
+      }
+  });
+
+  // Add play/pause button
+  gui.add({ togglePlayPause }, 'togglePlayPause').name('Pause/Play (space)');
+
+  // Add randomize button
+  gui.add({ randomize: randomizeInputs }, 'randomize').name('Randomize Inputs (r)');
+
+  CONFIG['uploadImage'] = function () {
+    imageInput.click();
+  };
+  gui.add(CONFIG, 'uploadImage').name('Upload Image (u)');
+  
+  CONFIG['saveImage'] = function () {
+    saveImage();
+  };
+  gui.add(CONFIG, 'saveImage').name("Save Image (s)");
+  
+  CONFIG['saveVideo'] = function () {
+    toggleVideoRecord();
+  };
+  gui.add(CONFIG, 'saveVideo').name("Video Export (v)");
+  
+  customContainer = document.getElementById('gui');
+  customContainer.appendChild(gui.domElement);
+}
+
+function updateConfig(key, value) {
+
+  // These parameters can be updated without restarting
+  const noRestartParams = [
+      'particleOpacity',
+      'particleSpeed',
+      'attractionStrength',
+      'particleSize',
+      'particleColor',
+      'backgroundColor',
+      'IS_PLAYING'
+  ];
+
+  // Update the configuration
+  if (key.includes('Color')) {
+      CONFIG[key] = value;
+  } else if (typeof CONFIG[key] === 'object' && CONFIG[key].hasOwnProperty('value')) {
+      CONFIG[key] = {
+          ...CONFIG[key],
+          value: typeof value === 'object' ? value.value : value
+      };
+  } else {
+      CONFIG[key] = value;
+  }
+
+  // Handle special cases
+  if (key === 'backgroundColor') {
+      updateBackgroundColor();
+      return;
+  }
+
+}
+
+function togglePlayPause(){
+
+}
+
+function randomizeInputs(){
+
+}
+
+
+function setupEventListeners() {
+  // imageInput.addEventListener('change', handleImageUpload);
+  // document.getElementById('restartBtn').addEventListener('click', () => safeRestartAnimation());
+  // document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
+  // document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
+  // document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
+
+  //shortcut hotkey presses
+  document.addEventListener('keydown', function(event) {
+    
+    if (event.key === 's') {
+      saveImage();
+    } else if (event.key === 'v') {
+      toggleVideoRecord();
+    } else if (event.code === 'Space') {
+      event.preventDefault();
+      togglePlayPause();
+    } else if(event.key === 'Enter'){
+      safeRestartAnimation();
+    } else if(event.key === 'r'){
+      randomizeInputs();
+    } else if(event.key === 'u'){
+      imageInput.click();
+    }
+    
+  });
+
+}
 
 // Offscreen canvas for grid
 const gridCanvas = document.createElement('canvas');
@@ -106,8 +223,8 @@ class Particle {
       this.y = y;
       this.originalY = y;
       this.frozen = false;
-      this.speed = ANIMATION_SPEED;
-      this.size = BASE_PARTICLE_SIZE;
+      this.speed = CONFIG['animationSpeed'].value;
+      this.size = CONFIG['particleSize'].value;
       this.glowIntensity = Math.random() * 0.5 + 0.5;
       this.threshold = threshold;
       this.waveIndex = waveIndex;
@@ -136,7 +253,7 @@ class Particle {
           
           // Check if we're on an edge
           if (edgeIntensity < this.threshold && this.x > 20) {
-              if (!this.onCooldown && Math.random() < frozenProbability) {
+              if (!this.onCooldown && Math.random() < CONFIG['frozenProbability'].value) {
                 // Attempt to stick
                   this.frozen = true;
                   return;
@@ -154,7 +271,7 @@ class Particle {
           let moveAmount = 1 * this.speed * 0.8;
 
           if(hasCollision){
-            moveAmount += (this.waveAmplitude*MAX_TURBULENCE) * (Math.sin(this.y/this.waveFrequency)) + 2;
+            moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * (Math.sin(this.y/this.waveFrequency)) + 2;
           }
           this.x += moveAmount;
           
@@ -170,7 +287,7 @@ class Particle {
 
   draw() {
 
-      const size = BASE_PARTICLE_SIZE * (1 + this.turbulence * 1.2);
+      const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
       
       const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
       const gray = Math.floor(255 - this.turbulence * 100);
@@ -199,9 +316,9 @@ function createParticleWave() {
   let waveFrequency = 20 - Math.random()*10;
   let waveAmplitude = 10 * Math.random();
 
-  const particles = new Array(NUM_PARTICLES);
+  const particles = new Array(CONFIG['numParticles'].value);
   
-  for (let i = 0; i < NUM_PARTICLES; i++) {
+  for (let i = 0; i < CONFIG['numParticles'].value; i++) {
       //const y = (canvas.height / NUM_PARTICLES) * i;
       let y = canvas.height * Math.random();
       particles[i] = new Particle(0, y, currentThreshold, waveCount, waveFrequency, waveAmplitude);
@@ -255,7 +372,6 @@ function animate(currentTime) {
   if (!isAnimating) return;
 
   // Calculate delta time for smooth animation
-  const deltaTime = (currentTime - lastFrameTime) * ANIMATION_SPEED;
   lastFrameTime = currentTime;
 
   ctx.fillStyle = '#000000';
@@ -264,7 +380,7 @@ function animate(currentTime) {
   // Draw pre-rendered grid
   ctx.drawImage(gridCanvas, 0, 0);
 
-  if (currentTime - lastWaveTime >= WAVE_INTERVAL) {
+  if (currentTime - lastWaveTime >= CONFIG['waveInterval'].value) {
       createParticleWave();
       lastWaveTime = currentTime;
   }
@@ -284,7 +400,7 @@ function restartAnimation() {
   particleWaves.length = 0;
   waveCount = 0;
   const currentTime = performance.now();
-  lastWaveTime = currentTime - WAVE_INTERVAL; // This ensures a new wave will be created soon
+  lastWaveTime = currentTime - CONFIG['waveInterval'].value; // This ensures a new wave will be created soon
   lastFrameTime = currentTime;
   
   ctx.fillStyle = '#000000';
@@ -330,77 +446,6 @@ const handleResize = _.debounce(() => {
   restartAnimation();
 }, 250);
 
-// Slider elements
-const speedSlider = document.getElementById('speedSlider');
-const waveFreqSlider = document.getElementById('waveFreqSlider');
-const particleCountSlider = document.getElementById('particleCountSlider');
-const frozenProbSlider = document.getElementById('frozenProbSlider');
-const turbulenceSlider = document.getElementById('turbulenceSlider');
-const particleSizeSlider = document.getElementById('particleSizeSlider');
-
-const speedValue = document.getElementById('speedValue');
-const waveFreqValue = document.getElementById('waveFreqValue');
-const particleCountValue = document.getElementById('particleCountValue');
-const frozenProbValue = document.getElementById('frozenProbValue');
-const turbulenceValue = document.getElementById('turbulenceValue');
-const particleSizeValue = document.getElementById('particleSizeValue');
-
-// Update functions
-function updateSpeed(value) {
-  ANIMATION_SPEED = parseFloat(value);
-  speedValue.textContent = `${value}x`;
-}
-
-function updateWaveFrequency(value) {
-  WAVE_INTERVAL = parseInt(value);
-  waveFreqValue.textContent = `${value}ms`;
-}
-
-function updateParticleCount(value) {
-  NUM_PARTICLES = parseInt(value);
-  particleCountValue.textContent = value;
-}
-
-function updateFrozenProbability(value) {
-  frozenProbability = parseFloat(value);
-  frozenProbValue.textContent = frozenProbability.toFixed(2);
-}
-
-function updateTurbulence(value) {
-  MAX_TURBULENCE = parseFloat(value);
-  turbulenceValue.textContent = MAX_TURBULENCE.toFixed(1);
-}
-
-function updateParticleSize(value) {
-  BASE_PARTICLE_SIZE = parseFloat(value);
-  particleSizeValue.textContent = BASE_PARTICLE_SIZE.toFixed(1);
-}
-
-// Slider event listeners
-speedSlider.addEventListener('input', (e) => {
-  updateSpeed(e.target.value);
-});
-
-waveFreqSlider.addEventListener('input', (e) => {
-  updateWaveFrequency(e.target.value);
-});
-
-particleCountSlider.addEventListener('input', (e) => {
-  updateParticleCount(e.target.value);
-});
-
-frozenProbSlider.addEventListener('input', (e) => {
-  updateFrozenProbability(e.target.value);
-});
-
-turbulenceSlider.addEventListener('input', (e) => {
-  updateTurbulence(e.target.value);
-});
-
-particleSizeSlider.addEventListener('input', (e) => {
-  updateParticleSize(e.target.value);
-});
-
 // Debounced restart function for slider changes
 const debouncedRestart = _.debounce(() => {
   if (isAnimating) {
@@ -408,24 +453,8 @@ const debouncedRestart = _.debounce(() => {
   }
 }, 250);
 
-// Add restart trigger to all sliders
-[speedSlider, waveFreqSlider, particleCountSlider, frozenProbSlider, turbulenceSlider, particleSizeSlider].forEach(slider => {
-  slider.addEventListener('change', debouncedRestart);
-});
-
 // Event Listeners
 window.addEventListener('resize', handleResize);
-
-playPauseBtn.addEventListener('click', () => {
-  isAnimating = !isAnimating;
-  playPauseBtn.textContent = isAnimating ? 'Pause' : 'Play';
-  if (isAnimating) {
-      lastFrameTime = performance.now();
-      animate(lastFrameTime);
-  }
-});
-
-restartBtn.addEventListener('click', restartAnimation);
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -460,10 +489,6 @@ fileInput.addEventListener('change', (e) => {
 
       statusElement.textContent = "Initializing Particle System...";
       
-      // Enable controls
-      playPauseBtn.disabled = false;
-      restartBtn.disabled = false;
-      
       // Reset all animation state
       particleWaves.length = 0;
       waveCount = 0;
@@ -472,7 +497,6 @@ fileInput.addEventListener('change', (e) => {
       // Ensure animation is running
       isAnimating = true;
       lastFrameTime = performance.now();
-      playPauseBtn.textContent = 'Pause';
       
       // Start fresh wave
       createParticleWave();
@@ -484,6 +508,8 @@ fileInput.addEventListener('change', (e) => {
 });
 
 // Start animation immediately
+initGUI();
+setupEventListeners();
 isAnimating = true;
 lastFrameTime = performance.now();
 lastWaveTime = lastFrameTime;

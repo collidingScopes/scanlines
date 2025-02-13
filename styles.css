@@ -1,13 +1,30 @@
 body {
   margin: 0;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  padding: 0px;
+  /* display: flex;
+  flex-direction: column; */
+  /* align-items: center; */
   background-color: #000000;
   color: #6f9fff;
   font-family: 'Courier New', monospace;
   min-height: 100vh;
+}
+
+#gui {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: black;
+  opacity: 0.9;
+  margin: 0;
+  z-index: 10;
+  float: right;
+}
+
+.close-button {
+  font-size: 1.2em;
+  font-weight: bold;
+  background-color: #630940 !important;
 }
 
 .container {
@@ -29,7 +46,7 @@ body {
   margin: 10px 0;
 }
 
-.button {
+.gui-button {
   padding: 12px 24px;
   background-color: transparent;
   border: 2px solid #6f9fff;
@@ -42,7 +59,7 @@ body {
   box-shadow: 0 0 10px rgba(111, 159, 255, 0.2);
 }
 
-.button:hover {
+.gui-button:hover {
   background-color: rgba(111, 159, 255, 0.1);
   box-shadow: 0 0 15px rgba(111, 159, 255, 0.4);
 }
@@ -64,6 +81,7 @@ body {
   text-shadow: 0 0 5px rgba(111, 159, 255, 0.5);
 }
 
+/*
 .control-panel {
   display: flex;
   flex-direction: column;
@@ -116,3 +134,4 @@ body {
   color: #8eb3ff;
   text-align: right;
 }
+*/

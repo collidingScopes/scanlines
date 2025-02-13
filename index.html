@@ -1,17 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Neon Edge Detection with Wave Interactions</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanlines: Edge Detection with Wave Interactions</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
     <link rel="stylesheet" href="styles.css">
+
+    <meta property="og:title" content="Particular Drift" />
+    <meta property="og:description" content="Turn images into flowing particle animations" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://particular-drift.netlify.app" />
+    <meta property="og:image" content="https://collidingscopes.github.io/particular-drift/assets/siteOGImage.png">
+    <meta property="og:image:type" content="image/png" >
+    <meta property="og:image:width" content="784" >
+    <meta property="og:image:height" content="784" >
+  
+    <link rel="icon" href="assets/siteFavicon3.png">
+    <link rel="apple-touch-icon" href="assets/siteFavicon3.png">
+
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="eb59c81c-27cb-4e1d-9e8c-bfbe70c48cd9"></script>
+
 </head>
 <body>
+    <div id="gui"></div>
     <div class="container">
+
         <div class="file-input-container">
-            <label for="fileInput" class="button">Upload Image</label>
+            <label for="fileInput" class="gui-button">Upload Image</label>
             <input type="file" id="fileInput" accept="image/*">
         </div>
 
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div class="status" id="status">System Ready. Awaiting Input.</div>
+
+        <!--
         <div class="control-panel">
 
           <div class="slider-container">
@@ -49,9 +73,8 @@
           <button id="restartBtn" class="button" disabled>Restart</button>
 
         </div>
+        -->
 
-        <canvas id="canvas" width="800" height="600"></canvas>
-        <div class="status" id="status">System Ready. Awaiting Input.</div>
     </div>
     <script src="main.js"></script>
 </body>
