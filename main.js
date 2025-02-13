@@ -1,6 +1,5 @@
 /*
 To do:
-- control for particle color / frozen color
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
 - toggle for edge thresholds
 - can the particle speed be variable (it speeds up as it approaches an edge, and then speeds up as it leaves an edge?)
@@ -14,6 +13,10 @@ To do:
 - about / footer divs
 - video and image export
 - canvas should be resized upon startup
+- add background color toggle
+- add color palette selections
+- randomize inputs button
+- add emoji buttons underneath canvas (similar to particular drift)
 */
 
 // Canvas setup
@@ -30,7 +33,6 @@ const restartBtn = document.getElementById('restartBtn');
 // State variables
 const particleWaves = [];
 let edgeData = null;
-let isAnimating = false;
 let lastWaveTime = 0;
 let waveCount = 0;
 
@@ -40,6 +42,9 @@ const INITIAL_THRESHOLD = 200;
 const MIN_THRESHOLD = 50;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
+
+let animationID;
+let isPlaying = false;
 
 // Configuration
 let gui = new dat.gui.GUI( { autoPlace: false } );
@@ -54,7 +59,8 @@ const CONFIG = {
     particleSize: { value: 1, min: 0.5, max: 3.0, step: 0.1 },
     selectedPalette: 'galaxy',
     backgroundColor: '#0f0d2e',
-    particleColor: '#dda290',
+    particleColor: '#ffffff',
+    edgeColor: '#6f9fff',
     IS_PLAYING: true
 };
 
@@ -63,6 +69,15 @@ function initGUI() {
   // Initialize controllers object
   window.guiControllers = {};
 
+  // Add individual color controls
+  window.guiControllers.particleColor = gui.addColor(CONFIG, 'particleColor')
+    .name('particleColor')
+    .onChange(v => updateConfig('particleColor', v));
+
+  window.guiControllers.edgeColor = gui.addColor(CONFIG, 'edgeColor')
+    .name('edgeColor')
+    .onChange(v => updateConfig('edgeColor', v));
+  
   // Add other controls
   Object.entries(CONFIG).forEach(([key, value]) => {
       if (typeof value === 'object' && !Array.isArray(value)) {
@@ -72,14 +87,12 @@ function initGUI() {
       }
   });
 
-  // Add play/pause button
   gui.add({ togglePlayPause }, 'togglePlayPause').name('Pause/Play (space)');
-
-  // Add randomize button
+  gui.add({ restartAnimation }, 'restartAnimation').name('Restart Animation (enter)');
   gui.add({ randomize: randomizeInputs }, 'randomize').name('Randomize Inputs (r)');
 
   CONFIG['uploadImage'] = function () {
-    imageInput.click();
+    fileInput.click();
   };
   gui.add(CONFIG, 'uploadImage').name('Upload Image (u)');
   
@@ -98,17 +111,6 @@ function initGUI() {
 }
 
 function updateConfig(key, value) {
-
-  // These parameters can be updated without restarting
-  const noRestartParams = [
-      'particleOpacity',
-      'particleSpeed',
-      'attractionStrength',
-      'particleSize',
-      'particleColor',
-      'backgroundColor',
-      'IS_PLAYING'
-  ];
 
   // Update the configuration
   if (key.includes('Color')) {
@@ -131,13 +133,17 @@ function updateConfig(key, value) {
 }
 
 function togglePlayPause(){
-
+  if(isPlaying){
+    cancelAnimationFrame(animationID);
+  } else {
+    startAnimation();
+  }
+  isPlaying = !isPlaying;
 }
 
 function randomizeInputs(){
 
 }
-
 
 function setupEventListeners() {
   // imageInput.addEventListener('change', handleImageUpload);
@@ -157,11 +163,11 @@ function setupEventListeners() {
       event.preventDefault();
       togglePlayPause();
     } else if(event.key === 'Enter'){
-      safeRestartAnimation();
+      restartAnimation();
     } else if(event.key === 'r'){
       randomizeInputs();
     } else if(event.key === 'u'){
-      imageInput.click();
+      fileInput.click();
     }
     
   });
@@ -286,26 +292,36 @@ class Particle {
   }
 
   draw() {
+    //const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
+    const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
+    //const gray = Math.floor(255 - this.turbulence * 100);
+    let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
-      const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
-      
-      const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
-      const gray = Math.floor(255 - this.turbulence * 100);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, TWO_PI);
 
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, size, 0, TWO_PI);
-
-      if (this.frozen) {
-        //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
-        ctx.fillStyle = `rgba(111, 159, 255, 1)`;
-      } else {
-        ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${intensity * this.glowIntensity})`;
-        //ctx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
-      }
-      
-      ctx.fill();
-
+    if (this.frozen) {
+      //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
+      ctx.fillStyle = CONFIG['edgeColor'];
+    } else {
+      //ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${intensity * this.glowIntensity})`;
+      ctx.fillStyle = `rgba(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]}, ${intensity * this.glowIntensity})`;
+    }
+    
+    ctx.fill();
   }
+}
+
+function hexToRGBArray(hexColor){
+    // Remove the # if present
+    hexColor = hexColor.replace(/^#/, '');
+    
+    // Parse the hex values
+    const r = parseInt(hexColor.substring(0, 2), 16);
+    const g = parseInt(hexColor.substring(2, 4), 16);
+    const b = parseInt(hexColor.substring(4, 6), 16);
+    
+    return [r, g, b];
 }
 
 // Wave creation
@@ -369,9 +385,8 @@ function detectEdges(imageData) {
 // Animation
 let lastFrameTime = 0;
 function animate(currentTime) {
-  if (!isAnimating) return;
+  if (!isPlaying) return;
 
-  // Calculate delta time for smooth animation
   lastFrameTime = currentTime;
 
   ctx.fillStyle = '#000000';
@@ -393,7 +408,7 @@ function animate(currentTime) {
       }
   }
 
-  requestAnimationFrame(animate);
+  animationID = requestAnimationFrame(animate);
 }
 
 function restartAnimation() {
@@ -407,13 +422,7 @@ function restartAnimation() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(gridCanvas, 0, 0);
   
-  createParticleWave();
-  
-  if (!isAnimating) {
-      isAnimating = true;
-      animate(currentTime);
-      playPauseBtn.textContent = 'Pause';
-  }
+  startAnimation();
 }
 
 // Image handling
@@ -448,7 +457,7 @@ const handleResize = _.debounce(() => {
 
 // Debounced restart function for slider changes
 const debouncedRestart = _.debounce(() => {
-  if (isAnimating) {
+  if (isPlaying) {
       restartAnimation();
   }
 }, 250);
@@ -492,26 +501,23 @@ fileInput.addEventListener('change', (e) => {
       // Reset all animation state
       particleWaves.length = 0;
       waveCount = 0;
-      lastWaveTime = performance.now();
-      
-      // Ensure animation is running
-      isAnimating = true;
-      lastFrameTime = performance.now();
-      
-      // Start fresh wave
-      createParticleWave();
-      animate(lastFrameTime);
+
+      startAnimation();
       
       statusElement.textContent = "Animation Running";
   };
   currentImage.src = URL.createObjectURL(file);
 });
 
+function startAnimation(){
+  isPlaying = true;
+  lastFrameTime = performance.now();
+  lastWaveTime = lastFrameTime;
+  createParticleWave();
+  animationID = requestAnimationFrame(animate(lastFrameTime));
+}
+
 // Start animation immediately
 initGUI();
 setupEventListeners();
-isAnimating = true;
-lastFrameTime = performance.now();
-lastWaveTime = lastFrameTime;
-createParticleWave();
-animate(lastFrameTime);
+startAnimation();
