@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neon Edge Detection with Wave Interactions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="file-input-container">
+            <label for="fileInput" class="button">Upload Image</label>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="control-panel">
+
+          <div class="slider-container">
+              <label for="speedSlider">Animation Speed</label>
+              <input type="range" id="speedSlider" min="0.1" max="2" step="0.1" value="0.3">
+              <span class="slider-value" id="speedValue">0.3x</span>
+          </div>
+          <div class="slider-container">
+              <label for="waveFreqSlider">Wave Frequency</label>
+              <input type="range" id="waveFreqSlider" min="500" max="3000" step="100" value="1200">
+              <span class="slider-value" id="waveFreqValue">1500ms</span>
+          </div>
+          <div class="slider-container">
+              <label for="particleCountSlider">Particles per Wave</label>
+              <input type="range" id="particleCountSlider" min="50" max="300" step="10" value="150">
+              <span class="slider-value" id="particleCountValue">150</span>
+          </div>
+          <div class="slider-container">
+            <label for="frozenProbSlider">Frozen Probability</label>
+            <input type="range" id="frozenProbSlider" min="0" max="1" step="0.05" value="0.5">
+            <span class="slider-value" id="frozenProbValue">0.50</span>
+          </div>
+          <div class="slider-container">
+              <label for="turbulenceSlider">Max Turbulence</label>
+              <input type="range" id="turbulenceSlider" min="0.1" max="4" step="0.1" value="1">
+              <span class="slider-value" id="turbulenceValue">1.0</span>
+          </div>
+          <div class="slider-container">
+              <label for="particleSizeSlider">Particle Size</label>
+              <input type="range" id="particleSizeSlider" min="0.5" max="3" step="0.1" value="1.5">
+              <span class="slider-value" id="particleSizeValue">1.5</span>
+          </div>
+
+          <button id="playPauseBtn" class="button" disabled>Pause</button>
+          <button id="restartBtn" class="button" disabled>Restart</button>
+
+        </div>
+
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div class="status" id="status">System Ready. Awaiting Input.</div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
