@@ -8,7 +8,7 @@ To do:
 - if collisionHistory is true, blend the particle color in between edge / frozen color
 - readme / github / description
 - about / footer divs
-- video and image export
+- improve resizing function to round the input image / canvas to multiple of 4 upon new image upload
 - add color palette selections
 - randomize inputs button
 - add emoji buttons underneath canvas (similar to particular drift)
@@ -57,9 +57,9 @@ const CONFIG = {
     edgeThreshold: { value: 100, min: 50, max: 300, step: 1 },
     startPosition: 'Top',
     selectedPalette: 'galaxy',
-    backgroundColor: '#0f0d2e',
-    particleColor: '#ffffff',
-    edgeColor: '#6f9fff',
+    backgroundColor: '#000000',
+    particleColor: '#eda2a2',
+    edgeColor: '#8ce0de',
     IS_PLAYING: true,
 };
 
@@ -232,26 +232,25 @@ class Particle {
       }
 
       let hasCollision = false;
+      let maxAccumulation = 10;
 
       // Check for edges based on direction
       // look "ahead" by one pixel to create a particle build-up effect
       if (this.isInBounds()) {
           const index = (Math.floor(this.y) * canvas.width + Math.floor(this.x)) * 4;
-          //const edgeIntensity = edgeData[index + (4*this.waveIndex)];
-          //const edgeIntensity = edgeData[index];
           let edgeIntensity;
           switch (CONFIG.startPosition) {
             case 'Left':
-              edgeIntensity = edgeData[index + (4*this.waveIndex)];
+              edgeIntensity = edgeData[index + (4*Math.min(this.waveIndex,maxAccumulation))];
               break;
             case 'Right':
-              edgeIntensity = edgeData[index - (4*this.waveIndex)];
+              edgeIntensity = edgeData[index - (4*Math.min(this.waveIndex,maxAccumulation))];
               break;
             case 'Top':
-              edgeIntensity = edgeData[index + (4*(this.waveIndex*canvas.width))];
+              edgeIntensity = edgeData[index + (4*(Math.min(this.waveIndex,maxAccumulation)*canvas.width))];
               break;
             case 'Bottom':
-              edgeIntensity = edgeData[index - (4*(this.waveIndex*canvas.width))];
+              edgeIntensity = edgeData[index - (4*(Math.min(this.waveIndex,maxAccumulation)*canvas.width))];
               break;
           }
           //edgeIntensity = edgeData[index];
@@ -446,7 +445,7 @@ function animate() {
 function restartAnimation() {
   
   cancelAnimationFrame(animationID);
-  
+
   particleWaves = [];
   particleWaves.length = 0;
   waveCount = 0;
@@ -546,7 +545,7 @@ function loadDefaultImage() {
     isPlaying = true;
     animationID = requestAnimationFrame(animate);
   };
-  currentImage.src = 'assets/square.jpg';
+  currentImage.src = 'assets/sun.jpg';
 }
 
 // Start animation immediately
