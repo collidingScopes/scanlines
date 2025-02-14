@@ -6,12 +6,9 @@ To do:
 - improve default parameters
 - Toggle to show all image edge thresholds upon startup or not
 - if collisionHistory is true, blend the particle color in between edge / frozen color
-- if collisionHistory is true, particle should start to oscillate over time based on waves (rather than a static manipulation upon collision)
-- default image
 - readme / github / description
 - about / footer divs
 - video and image export
-- canvas should be resized upon startup
 - add color palette selections
 - randomize inputs button
 - add emoji buttons underneath canvas (similar to particular drift)
@@ -51,9 +48,9 @@ let gui = new dat.gui.GUI( { autoPlace: false } );
 //gui.close();
 let guiOpenToggle = true;
 const CONFIG = {
-    animationSpeed: { value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
+    animationSpeed: { value: 0.7, min: 0.1, max: 2.0, step: 0.1 },
     waveInterval: { value: 150, min: 50, max: 300, step: 1 },
-    numParticles: { value: 150, min: 50, max: 400, step: 1 },
+    numParticles: { value: 250, min: 50, max: 400, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
     particleSize: { value: 1, min: 0.5, max: 2.0, step: 0.1 },
@@ -132,11 +129,12 @@ function updateConfig(key, value) {
 }
 
 function togglePlayPause(){
-  console.log("isPlaying: "+isPlaying);
   if(isPlaying){
     cancelAnimationFrame(animationID);
+    console.log("Pause");
   } else {
     animationID = requestAnimationFrame(animate);
+    console.log("Play");
   }
   isPlaying = !isPlaying;
 }
@@ -194,8 +192,6 @@ class Particle {
       this.x = x;
       this.y = y;
       this.frozen = false;
-      this.glowIntensity = Math.random() * 0.5 + 0.5;
-      this.turbulence = 0;
       this.collisionHistory = false;
 
       this.waveIndex = waveIndex;
@@ -203,7 +199,6 @@ class Particle {
       this.waveAmplitude = waveAmplitude;
       
       this.onCooldown = false;
-      this.cooldownDistance = 0;
       this.cooldownFrames = 0;
   }
 
@@ -228,7 +223,6 @@ class Particle {
               } else if (!this.onCooldown) {
                   // Start cooldown if we pass over an edge but don't stick
                   this.onCooldown = true;
-                  this.cooldownDistance = 0;
                   this.cooldownFrames = 0;
                   hasCollision = true;
                   this.collisionHistory = true;
@@ -238,7 +232,7 @@ class Particle {
 
       // Move the particle
       if (!this.frozen && this.x < canvas.width) {
-          let moveAmount = 1 * CONFIG['animationSpeed'].value * 0.5;
+          let moveAmount = 1 * CONFIG['animationSpeed'].value * (canvas.width*0.001);
 
           /*
           if(hasCollision){
@@ -255,7 +249,6 @@ class Particle {
           
           // Update cooldown distance if active
           if (this.onCooldown) {
-              //this.cooldownDistance += moveAmount;
               this.cooldownFrames++;
               if (this.cooldownFrames >= COOLDOWN_FRAMES) {
                   this.onCooldown = false;
@@ -271,7 +264,7 @@ class Particle {
     }
 
     //const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
-    const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
+    //const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
     //const gray = Math.floor(255 - this.turbulence * 100);
     let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
@@ -282,10 +275,11 @@ class Particle {
       //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
       ctx.fillStyle = CONFIG['edgeColor'];
     } else if(this.collisionHistory){
-      ctx.fillStyle = "red";
+      ctx.fillStyle = CONFIG['edgeColor'];
     } else {
       //ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${intensity * this.glowIntensity})`;
-      ctx.fillStyle = `rgba(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]}, ${intensity * this.glowIntensity})`;
+      //ctx.fillStyle = `rgba(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]}, ${intensity * this.glowIntensity})`;
+      ctx.fillStyle = `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`;
     }
     
     ctx.fill();
@@ -307,14 +301,15 @@ function hexToRGBArray(hexColor){
 // Wave creation
 function createParticleWave() {
 
-  let waveFrequency = 10 - Math.random()*8;
-  let waveAmplitude = 0.3 * Math.random();
+  let waveFrequency = 12 - Math.random()*10;
+  let waveAmplitude = 0.3 * Math.random() + 0.05;
 
   const particles = new Array(CONFIG['numParticles'].value);
   
   for (let i = 0; i < CONFIG['numParticles'].value; i++) {
-      //const y = (canvas.height / NUM_PARTICLES) * i;
-      let y = canvas.height * Math.random();
+      //let y = (canvas.height / CONFIG['numParticles'].value) * i;
+      let y = (canvas.height / CONFIG['numParticles'].value) * i + Math.random()*3 - 1.5;
+      //let y = canvas.height * Math.random();
       particles[i] = new Particle(0, y, waveCount, waveFrequency, waveAmplitude);
   }
   
@@ -459,8 +454,34 @@ fileInput.addEventListener('change', (e) => {
   currentImage.src = URL.createObjectURL(file);
 });
 
+// Load default image and start animation
+function loadDefaultImage() {
+  currentImage = new Image();
+  currentImage.onload = () => {
+    const maxWidth = window.innerWidth * maxCanvasSize;
+    const maxHeight = window.innerHeight * maxCanvasSize;
+    
+    const widthRatio = maxWidth / currentImage.width;
+    const heightRatio = maxHeight / currentImage.height;
+    const scale = Math.min(widthRatio, heightRatio);
+    
+    canvas.width = currentImage.width * scale;
+    canvas.height = currentImage.height * scale;
+
+    console.log("Canvas size: "+canvas.width+", "+canvas.height);
+
+    ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    edgeData = detectEdges(imageData);
+    
+    isPlaying = true;
+    animationID = requestAnimationFrame(animate);
+  };
+  currentImage.src = 'assets/square.jpg';
+}
+
 // Start animation immediately
 initGUI();
 setupEventListeners();
-isPlaying = true;
-animationID = requestAnimationFrame(animate);
+loadDefaultImage();
