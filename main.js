@@ -1,22 +1,22 @@
 /*
 To do:
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
-- toggle for edge thresholds
 - can the particle speed be variable (it speeds up as it approaches an edge, and then speeds up as it leaves an edge?)
 - control for particle direction (left, right, up, down, angle??)
 - improve default parameters
-- use static edge threshold (controllable with GUI)
-- fire a new wave based on pixel distance from previous wave (rather than time)
 - Toggle to show all image edge thresholds upon startup or not
+- if collisionHistory is true, blend the particle color in between edge / frozen color
+- if collisionHistory is true, particle should start to oscillate over time based on waves (rather than a static manipulation upon collision)
 - default image
 - readme / github / description
 - about / footer divs
 - video and image export
 - canvas should be resized upon startup
-- add background color toggle
 - add color palette selections
 - randomize inputs button
 - add emoji buttons underneath canvas (similar to particular drift)
+- can we delete particle waves once they reach the end of the canvas to improve performance?
+- reorder functions more logically (main functions, helper functions, etc.)
 */
 
 // Canvas setup
@@ -32,14 +32,15 @@ const restartBtn = document.getElementById('restartBtn');
 // State variables
 const particleWaves = [];
 let edgeData = null;
-let lastWaveTime = 0;
 let waveCount = 0;
+let frameCounter = 0;
 
 // Constants and configuration
 const MAX_WAVES = 200;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
 const maxCanvasSize = 0.8;
+const COOLDOWN_PIXELS = 50;
 
 let animationID;
 let isPlaying = false;
@@ -50,7 +51,7 @@ let gui = new dat.gui.GUI( { autoPlace: false } );
 let guiOpenToggle = true;
 const CONFIG = {
     animationSpeed: { value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
-    waveInterval: { value: 1500, min: 500, max: 3000, step: 100 },
+    waveInterval: { value: 100, min: 50, max: 300, step: 1 },
     numParticles: { value: 150, min: 50, max: 300, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
@@ -76,6 +77,10 @@ function initGUI() {
   window.guiControllers.edgeColor = gui.addColor(CONFIG, 'edgeColor')
     .name('edgeColor')
     .onChange(v => updateConfig('edgeColor', v));
+
+  window.guiControllers.backgroundColor = gui.addColor(CONFIG, 'backgroundColor')
+    .name('backgroundColor')
+    .onChange(v => updateConfig('backgroundColor', v));
   
   // Add other controls
   Object.entries(CONFIG).forEach(([key, value]) => {
@@ -123,12 +128,6 @@ function updateConfig(key, value) {
       CONFIG[key] = value;
   }
 
-  // Handle special cases
-  if (key === 'backgroundColor') {
-      updateBackgroundColor();
-      return;
-  }
-
 }
 
 function togglePlayPause(){
@@ -173,40 +172,6 @@ function setupEventListeners() {
 
 }
 
-// Offscreen canvas for grid
-const gridCanvas = document.createElement('canvas');
-gridCanvas.width = canvas.width;
-gridCanvas.height = canvas.height;
-const gridCtx = gridCanvas.getContext('2d', { alpha: false });
-
-// Grid drawing function
-function drawGrid() {
-    gridCtx.fillStyle = '#000000';
-    gridCtx.fillRect(0, 0, gridCanvas.width, gridCanvas.height);
-    
-    gridCtx.strokeStyle = 'rgba(111, 159, 255, 0.1)';
-    gridCtx.lineWidth = 0.5;
-    
-    const gridSize = 20;
-    
-    for(let x = 0; x < gridCanvas.width; x += gridSize) {
-        gridCtx.beginPath();
-        gridCtx.moveTo(x, 0);
-        gridCtx.lineTo(x, gridCanvas.height);
-        gridCtx.stroke();
-    }
-    
-    for(let y = 0; y < gridCanvas.height; y += gridSize) {
-        gridCtx.beginPath();
-        gridCtx.moveTo(0, y);
-        gridCtx.lineTo(gridCanvas.width, y);
-        gridCtx.stroke();
-    }
-}
-
-// Initialize grid
-drawGrid();
-
 // Create default edge data
 function createDefaultEdgeData() {
     const data = new Uint8ClampedArray(canvas.width * canvas.height * 4);
@@ -226,27 +191,25 @@ class Particle {
   constructor(x, y, waveIndex, waveFrequency, waveAmplitude) {
       this.x = x;
       this.y = y;
-      this.originalY = y;
       this.frozen = false;
       this.speed = CONFIG['animationSpeed'].value;
       this.size = CONFIG['particleSize'].value;
       this.glowIntensity = Math.random() * 0.5 + 0.5;
-      this.waveIndex = waveIndex;
       this.turbulence = 0;
-      this.verticalOffset = 0;
-      this.phaseOffset = Math.random() * TWO_PI;
-      this.lastInteractionTime = 0;
+      this.collisionHistory = false;
 
+      this.waveIndex = waveIndex;
       this.waveFrequency = waveFrequency;
       this.waveAmplitude = waveAmplitude;
       
       this.onCooldown = false;
       this.cooldownDistance = 0;
-      this.COOLDOWN_PIXELS = 50; // Distance in pixels before particle can stick again
   }
 
-  update(currentTime) {
-      if (this.frozen) return;
+  update() {
+      if (this.frozen || this.x >= canvas.width) {
+        return;
+      }
 
       let hasCollision = false;
 
@@ -266,6 +229,7 @@ class Particle {
                   this.onCooldown = true;
                   this.cooldownDistance = 0;
                   hasCollision = true;
+                  this.collisionHistory = true;
               }
           }
       }
@@ -282,7 +246,7 @@ class Particle {
           // Update cooldown distance if active
           if (this.onCooldown) {
               this.cooldownDistance += moveAmount;
-              if (this.cooldownDistance >= this.COOLDOWN_PIXELS) {
+              if (this.cooldownDistance >= COOLDOWN_PIXELS) {
                   this.onCooldown = false;
               }
           }
@@ -290,6 +254,11 @@ class Particle {
   }
 
   draw() {
+
+    if (this.x >= canvas.width) {
+      return;
+    }
+
     //const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
     const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
     //const gray = Math.floor(255 - this.turbulence * 100);
@@ -301,6 +270,8 @@ class Particle {
     if (this.frozen) {
       //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
       ctx.fillStyle = CONFIG['edgeColor'];
+    } else if(this.collisionHistory){
+      ctx.fillStyle = "red";
     } else {
       //ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${intensity * this.glowIntensity})`;
       ctx.fillStyle = `rgba(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]}, ${intensity * this.glowIntensity})`;
@@ -377,44 +348,37 @@ function detectEdges(imageData) {
 }
 
 // Animation
-let lastFrameTime = 0;
-function animate(currentTime) {
+
+function animate() {
   if (!isPlaying) return;
 
-  lastFrameTime = currentTime;
-
-  ctx.fillStyle = '#000000';
+  ctx.fillStyle = CONFIG['backgroundColor'];
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Draw pre-rendered grid
-  ctx.drawImage(gridCanvas, 0, 0);
 
-  if (currentTime - lastWaveTime >= CONFIG['waveInterval'].value) {
-      createParticleWave();
-      lastWaveTime = currentTime;
+  if(frameCounter % CONFIG['waveInterval'].value == 0){
+    createParticleWave();
   }
 
   // Update and draw particles in a single loop
   for (const wave of particleWaves) {
       for (const particle of wave.particles) {
-          particle.update(currentTime);
+          particle.update();
           particle.draw();
       }
   }
 
+  frameCounter++;
   animationID = requestAnimationFrame(animate);
 }
 
 function restartAnimation() {
+  
+  particleWaves = [];
   particleWaves.length = 0;
   waveCount = 0;
-  const currentTime = performance.now();
-  lastWaveTime = currentTime - CONFIG['waveInterval'].value; // This ensures a new wave will be created soon
-  lastFrameTime = currentTime;
   
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(gridCanvas, 0, 0);
   
   startAnimation();
 }
@@ -434,11 +398,6 @@ const handleResize = _.debounce(() => {
   
   canvas.width = currentImage.width * scale;
   canvas.height = currentImage.height * scale;
-  
-  // Update grid canvas size
-  gridCanvas.width = canvas.width;
-  gridCanvas.height = canvas.height;
-  drawGrid();
   
   ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -474,11 +433,6 @@ fileInput.addEventListener('change', (e) => {
       
       canvas.width = currentImage.width * scale;
       canvas.height = currentImage.height * scale;
-      
-      // Update grid canvas size
-      gridCanvas.width = canvas.width;
-      gridCanvas.height = canvas.height;
-      drawGrid();
 
       ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -499,10 +453,9 @@ fileInput.addEventListener('change', (e) => {
 
 function startAnimation(){
   isPlaying = true;
-  lastFrameTime = performance.now();
-  lastWaveTime = lastFrameTime;
+  frameCounter = 0;
   createParticleWave();
-  animationID = requestAnimationFrame(animate(lastFrameTime));
+  animationID = requestAnimationFrame(animate);
 }
 
 // Start animation immediately
