@@ -26,7 +26,6 @@ const ctx = canvas.getContext('2d', {
     alpha: false,
 });
 const fileInput = document.getElementById('fileInput');
-const statusElement = document.getElementById('status');
 const playPauseBtn = document.getElementById('playPauseBtn');
 const restartBtn = document.getElementById('restartBtn');
 
@@ -38,10 +37,9 @@ let waveCount = 0;
 
 // Constants and configuration
 const MAX_WAVES = 200;
-const INITIAL_THRESHOLD = 200;
-const MIN_THRESHOLD = 50;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
+const maxCanvasSize = 0.8;
 
 let animationID;
 let isPlaying = false;
@@ -57,6 +55,7 @@ const CONFIG = {
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
     particleSize: { value: 1, min: 0.5, max: 3.0, step: 0.1 },
+    edgeThreshold: { value: 100, min: 50, max: 300, step: 1 },
     selectedPalette: 'galaxy',
     backgroundColor: '#0f0d2e',
     particleColor: '#ffffff',
@@ -224,7 +223,7 @@ edgeData = createDefaultEdgeData();
 
 // Particle class
 class Particle {
-  constructor(x, y, threshold, waveIndex, waveFrequency, waveAmplitude) {
+  constructor(x, y, waveIndex, waveFrequency, waveAmplitude) {
       this.x = x;
       this.y = y;
       this.originalY = y;
@@ -232,7 +231,6 @@ class Particle {
       this.speed = CONFIG['animationSpeed'].value;
       this.size = CONFIG['particleSize'].value;
       this.glowIntensity = Math.random() * 0.5 + 0.5;
-      this.threshold = threshold;
       this.waveIndex = waveIndex;
       this.turbulence = 0;
       this.verticalOffset = 0;
@@ -258,7 +256,7 @@ class Particle {
           const edgeIntensity = edgeData[index + (4*this.waveIndex)]; //each wave looks ahead by one more pixel (creates "build-up" at edges)
           
           // Check if we're on an edge
-          if (edgeIntensity < this.threshold && this.x > 20) {
+          if (edgeIntensity < CONFIG['edgeThreshold'].value && this.x > 20) {
               if (!this.onCooldown && Math.random() < CONFIG['frozenProbability'].value) {
                 // Attempt to stick
                   this.frozen = true;
@@ -326,8 +324,6 @@ function hexToRGBArray(hexColor){
 
 // Wave creation
 function createParticleWave() {
-  //const currentThreshold = Math.max(MIN_THRESHOLD, INITIAL_THRESHOLD - (waveCount * 6));
-  let currentThreshold = INITIAL_THRESHOLD - ((INITIAL_THRESHOLD-MIN_THRESHOLD)*(waveCount/MAX_WAVES))
 
   let waveFrequency = 20 - Math.random()*10;
   let waveAmplitude = 10 * Math.random();
@@ -337,17 +333,15 @@ function createParticleWave() {
   for (let i = 0; i < CONFIG['numParticles'].value; i++) {
       //const y = (canvas.height / NUM_PARTICLES) * i;
       let y = canvas.height * Math.random();
-      particles[i] = new Particle(0, y, currentThreshold, waveCount, waveFrequency, waveAmplitude);
+      particles[i] = new Particle(0, y, waveCount, waveFrequency, waveAmplitude);
   }
   
   particleWaves.push({
       particles,
-      threshold: currentThreshold,
-      timestamp: Date.now()
+      timestamp: Date.now(),
   });
   
   waveCount++;
-  statusElement.textContent = `Wave ${waveCount} Launched - Threshold: ${currentThreshold}`;
   
   if (particleWaves.length > MAX_WAVES) {
       particleWaves.shift();
@@ -468,13 +462,11 @@ window.addEventListener('resize', handleResize);
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-
-  statusElement.textContent = "Processing Image...";
   
   currentImage = new Image();
   currentImage.onload = () => {
-      const maxWidth = window.innerWidth * 0.8;
-      const maxHeight = window.innerHeight * 0.8;
+      const maxWidth = window.innerWidth * maxCanvasSize;
+      const maxHeight = window.innerHeight * maxCanvasSize;
       
       const widthRatio = maxWidth / currentImage.width;
       const heightRatio = maxHeight / currentImage.height;
@@ -493,10 +485,7 @@ fileInput.addEventListener('change', (e) => {
 
       console.log("Canvas size: "+canvas.width+", "+canvas.height);
       
-      statusElement.textContent = "Detecting Edges...";
       edgeData = detectEdges(imageData);
-
-      statusElement.textContent = "Initializing Particle System...";
       
       // Reset all animation state
       particleWaves.length = 0;
@@ -504,7 +493,6 @@ fileInput.addEventListener('change', (e) => {
 
       startAnimation();
       
-      statusElement.textContent = "Animation Running";
   };
   currentImage.src = URL.createObjectURL(file);
 });
