@@ -2,7 +2,7 @@
 To do:
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
 - can the particle speed be variable (it speeds up as it approaches an edge, and then speeds up as it leaves an edge?)
-- control for particle direction (left, right, up, down, angle??)
+- Need to improve consistency of frame rate, and edge detection logic / control
 - improve default parameters
 - Toggle to show all image edge thresholds upon startup or not
 - if collisionHistory is true, blend the particle color in between edge / frozen color
@@ -55,6 +55,7 @@ const CONFIG = {
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
     particleSize: { value: 1, min: 0.5, max: 2.0, step: 0.1 },
     edgeThreshold: { value: 100, min: 50, max: 300, step: 1 },
+    startPosition: 'Top',
     selectedPalette: 'galaxy',
     backgroundColor: '#0f0d2e',
     particleColor: '#ffffff',
@@ -66,6 +67,13 @@ function initGUI() {
     
   // Initialize controllers object
   window.guiControllers = {};
+
+  window.guiControllers.startPosition = gui.add(CONFIG, 'startPosition', ['Left', 'Right', 'Top', 'Bottom'])
+  .name('Start Position')
+  .onChange(v => {
+      updateConfig('startPosition', v);
+      restartAnimation();
+  });
 
   // Add individual color controls
   window.guiControllers.particleColor = gui.addColor(CONFIG, 'particleColor')
@@ -188,40 +196,79 @@ edgeData = createDefaultEdgeData();
 
 // Particle class
 class Particle {
-  constructor(x, y, waveIndex, waveFrequency, waveAmplitude) {
-      this.x = x;
-      this.y = y;
-      this.frozen = false;
-      this.collisionHistory = false;
-
+  constructor(waveIndex, particleIndex, waveFrequency, waveAmplitude) {
       this.waveIndex = waveIndex;
       this.waveFrequency = waveFrequency;
       this.waveAmplitude = waveAmplitude;
-      
+      this.frozen = false;
+      this.collisionHistory = false;
       this.onCooldown = false;
       this.cooldownFrames = 0;
+
+      // Set initial position based on start position configuration
+      switch (CONFIG.startPosition) {
+          case 'Left':
+              this.x = 0;
+              this.y = (canvas.height / CONFIG['numParticles'].value) * particleIndex + Math.random()*3 - 1.5;
+              break;
+          case 'Right':
+              this.x = canvas.width;
+              this.y = (canvas.height / CONFIG['numParticles'].value) * particleIndex + Math.random()*3 - 1.5;
+              break;
+          case 'Top':
+              this.x = (canvas.width / CONFIG['numParticles'].value) * particleIndex + Math.random()*3 - 1.5;
+              this.y = 0;
+              break;
+          case 'Bottom':
+              this.x = (canvas.width / CONFIG['numParticles'].value) * particleIndex + Math.random()*3 - 1.5;
+              this.y = canvas.height;
+              break;
+      }
   }
 
   update() {
-      if (this.frozen || this.x >= canvas.width) {
-        return;
+      if (this.frozen || this.isOutOfBounds()) {
+          return;
       }
 
       let hasCollision = false;
 
-      // Update position and check for edges
-      if (this.x < canvas.width - 1 && this.y < canvas.height - 1) {
+      // Check for edges based on direction
+      // look "ahead" by one pixel to create a particle build-up effect
+      if (this.isInBounds()) {
           const index = (Math.floor(this.y) * canvas.width + Math.floor(this.x)) * 4;
-          const edgeIntensity = edgeData[index + (4*this.waveIndex)]; //each wave looks ahead by one more pixel (creates "build-up" at edges)
+          //const edgeIntensity = edgeData[index + (4*this.waveIndex)];
+          //const edgeIntensity = edgeData[index];
+          let edgeIntensity;
+          switch (CONFIG.startPosition) {
+            case 'Left':
+              edgeIntensity = edgeData[index + (4*this.waveIndex)];
+              break;
+            case 'Right':
+              edgeIntensity = edgeData[index - (4*this.waveIndex)];
+              break;
+            case 'Top':
+              edgeIntensity = edgeData[index + (4*(this.waveIndex*canvas.width))];
+              break;
+            case 'Bottom':
+              edgeIntensity = edgeData[index - (4*(this.waveIndex*canvas.width))];
+              break;
+          }
+          //edgeIntensity = edgeData[index];
           
-          // Check if we're on an edge
-          if (edgeIntensity < CONFIG['edgeThreshold'].value && this.x > 20) {
+          const minDistance = 20; // Minimum distance from start before freezing
+          const isPassedMinDistance = (
+              (CONFIG.startPosition === 'Left' && this.x > minDistance) ||
+              (CONFIG.startPosition === 'Right' && this.x < canvas.width - minDistance) ||
+              (CONFIG.startPosition === 'Top' && this.y > minDistance) ||
+              (CONFIG.startPosition === 'Bottom' && this.y < canvas.height - minDistance)
+          );
+
+          if (edgeIntensity < CONFIG['edgeThreshold'].value && isPassedMinDistance) {
               if (!this.onCooldown && Math.random() < CONFIG['frozenProbability'].value) {
-                // Attempt to stick
                   this.frozen = true;
                   return;
               } else if (!this.onCooldown) {
-                  // Start cooldown if we pass over an edge but don't stick
                   this.onCooldown = true;
                   this.cooldownFrames = 0;
                   hasCollision = true;
@@ -231,23 +278,30 @@ class Particle {
       }
 
       // Move the particle
-      if (!this.frozen && this.x < canvas.width) {
+      if (!this.frozen) {
           let moveAmount = 1 * CONFIG['animationSpeed'].value * (canvas.width*0.001);
 
-          /*
-          if(hasCollision){
-            moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * (Math.sin(this.y/this.waveFrequency)) + 2;
-          }
-          */
           if(this.collisionHistory){
-            moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * (Math.sin((frameCounter/4+this.y)/this.waveFrequency));
-          } else {
-            //this.x += moveAmount;
+              moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * 
+                  (Math.sin((frameCounter/4+this.getPositionForWave())/this.waveFrequency));
           }
 
-          this.x += moveAmount;
+          // Apply movement based on direction
+          switch (CONFIG.startPosition) {
+              case 'Left':
+                  this.x += moveAmount;
+                  break;
+              case 'Right':
+                  this.x -= moveAmount;
+                  break;
+              case 'Top':
+                  this.y += moveAmount;
+                  break;
+              case 'Bottom':
+                  this.y -= moveAmount;
+                  break;
+          }
           
-          // Update cooldown distance if active
           if (this.onCooldown) {
               this.cooldownFrames++;
               if (this.cooldownFrames >= COOLDOWN_FRAMES) {
@@ -257,32 +311,48 @@ class Particle {
       }
   }
 
+  isOutOfBounds() {
+      switch (CONFIG.startPosition) {
+          case 'Left':
+              return this.x >= canvas.width;
+          case 'Right':
+              return this.x <= 0;
+          case 'Top':
+              return this.y >= canvas.height;
+          case 'Bottom':
+              return this.y <= 0;
+      }
+  }
+
+  isInBounds() {
+      return this.x >= 0 && this.x < canvas.width && 
+             this.y >= 0 && this.y < canvas.height;
+  }
+
+  getPositionForWave() {
+      // Use the appropriate coordinate for wave calculation based on direction
+      return CONFIG.startPosition === 'Left' || CONFIG.startPosition === 'Right' 
+          ? this.y 
+          : this.x;
+  }
+
   draw() {
+      if (this.isOutOfBounds()) {
+          return;
+      }
 
-    if (this.x >= canvas.width) {
-      return;
-    }
+      let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
-    //const size = CONFIG['particleSize'].value * (1 + this.turbulence * 1.2);
-    //const intensity = Math.max(0,(0.9 - this.turbulence * 0.9));
-    //const gray = Math.floor(255 - this.turbulence * 100);
-    let rgbArray = hexToRGBArray(CONFIG['particleColor']);
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, CONFIG['particleSize'].value, 0, TWO_PI);
 
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, CONFIG['particleSize'].value, 0, TWO_PI);
-
-    if (this.frozen) {
-      //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
-      ctx.fillStyle = CONFIG['edgeColor'];
-    } else if(this.collisionHistory){
-      ctx.fillStyle = CONFIG['edgeColor'];
-    } else {
-      //ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${intensity * this.glowIntensity})`;
-      //ctx.fillStyle = `rgba(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]}, ${intensity * this.glowIntensity})`;
-      ctx.fillStyle = `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`;
-    }
-    
-    ctx.fill();
+      if (this.frozen || this.collisionHistory) {
+          ctx.fillStyle = CONFIG['edgeColor'];
+      } else {
+          ctx.fillStyle = `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`;
+      }
+      
+      ctx.fill();
   }
 }
 
@@ -300,17 +370,13 @@ function hexToRGBArray(hexColor){
 
 // Wave creation
 function createParticleWave() {
-
   let waveFrequency = 12 - Math.random()*10;
   let waveAmplitude = 0.3 * Math.random() + 0.05;
 
   const particles = new Array(CONFIG['numParticles'].value);
   
   for (let i = 0; i < CONFIG['numParticles'].value; i++) {
-      //let y = (canvas.height / CONFIG['numParticles'].value) * i;
-      let y = (canvas.height / CONFIG['numParticles'].value) * i + Math.random()*3 - 1.5;
-      //let y = canvas.height * Math.random();
-      particles[i] = new Particle(0, y, waveCount, waveFrequency, waveAmplitude);
+      particles[i] = new Particle(waveCount, i, waveFrequency, waveAmplitude);
   }
   
   particleWaves.push({
@@ -378,6 +444,8 @@ function animate() {
 }
 
 function restartAnimation() {
+  
+  cancelAnimationFrame(animationID);
   
   particleWaves = [];
   particleWaves.length = 0;
