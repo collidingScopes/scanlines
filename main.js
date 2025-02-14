@@ -30,7 +30,7 @@ const playPauseBtn = document.getElementById('playPauseBtn');
 const restartBtn = document.getElementById('restartBtn');
 
 // State variables
-const particleWaves = [];
+let particleWaves = [];
 let edgeData = null;
 let waveCount = 0;
 let frameCounter = 0;
@@ -41,6 +41,7 @@ const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
 const maxCanvasSize = 0.8;
 const COOLDOWN_PIXELS = 50;
+const COOLDOWN_FRAMES = 100;
 
 let animationID;
 let isPlaying = false;
@@ -51,17 +52,17 @@ let gui = new dat.gui.GUI( { autoPlace: false } );
 let guiOpenToggle = true;
 const CONFIG = {
     animationSpeed: { value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
-    waveInterval: { value: 100, min: 50, max: 300, step: 1 },
-    numParticles: { value: 150, min: 50, max: 300, step: 1 },
+    waveInterval: { value: 150, min: 50, max: 300, step: 1 },
+    numParticles: { value: 150, min: 50, max: 400, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
-    particleSize: { value: 1, min: 0.5, max: 3.0, step: 0.1 },
+    particleSize: { value: 1, min: 0.5, max: 2.0, step: 0.1 },
     edgeThreshold: { value: 100, min: 50, max: 300, step: 1 },
     selectedPalette: 'galaxy',
     backgroundColor: '#0f0d2e',
     particleColor: '#ffffff',
     edgeColor: '#6f9fff',
-    IS_PLAYING: true
+    IS_PLAYING: true,
 };
 
 function initGUI() {
@@ -131,10 +132,11 @@ function updateConfig(key, value) {
 }
 
 function togglePlayPause(){
+  console.log("isPlaying: "+isPlaying);
   if(isPlaying){
     cancelAnimationFrame(animationID);
   } else {
-    startAnimation();
+    animationID = requestAnimationFrame(animate);
   }
   isPlaying = !isPlaying;
 }
@@ -192,8 +194,6 @@ class Particle {
       this.x = x;
       this.y = y;
       this.frozen = false;
-      this.speed = CONFIG['animationSpeed'].value;
-      this.size = CONFIG['particleSize'].value;
       this.glowIntensity = Math.random() * 0.5 + 0.5;
       this.turbulence = 0;
       this.collisionHistory = false;
@@ -204,6 +204,7 @@ class Particle {
       
       this.onCooldown = false;
       this.cooldownDistance = 0;
+      this.cooldownFrames = 0;
   }
 
   update() {
@@ -228,6 +229,7 @@ class Particle {
                   // Start cooldown if we pass over an edge but don't stick
                   this.onCooldown = true;
                   this.cooldownDistance = 0;
+                  this.cooldownFrames = 0;
                   hasCollision = true;
                   this.collisionHistory = true;
               }
@@ -236,17 +238,26 @@ class Particle {
 
       // Move the particle
       if (!this.frozen && this.x < canvas.width) {
-          let moveAmount = 1 * this.speed * 0.8;
+          let moveAmount = 1 * CONFIG['animationSpeed'].value * 0.5;
 
+          /*
           if(hasCollision){
             moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * (Math.sin(this.y/this.waveFrequency)) + 2;
           }
+          */
+          if(this.collisionHistory){
+            moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * (Math.sin((frameCounter/4+this.y)/this.waveFrequency));
+          } else {
+            //this.x += moveAmount;
+          }
+
           this.x += moveAmount;
           
           // Update cooldown distance if active
           if (this.onCooldown) {
-              this.cooldownDistance += moveAmount;
-              if (this.cooldownDistance >= COOLDOWN_PIXELS) {
+              //this.cooldownDistance += moveAmount;
+              this.cooldownFrames++;
+              if (this.cooldownFrames >= COOLDOWN_FRAMES) {
                   this.onCooldown = false;
               }
           }
@@ -265,7 +276,7 @@ class Particle {
     let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, TWO_PI);
+    ctx.arc(this.x, this.y, CONFIG['particleSize'].value, 0, TWO_PI);
 
     if (this.frozen) {
       //ctx.fillStyle = `rgba(111, 159, 255, ${intensity * this.glowIntensity})`;
@@ -296,8 +307,8 @@ function hexToRGBArray(hexColor){
 // Wave creation
 function createParticleWave() {
 
-  let waveFrequency = 20 - Math.random()*10;
-  let waveAmplitude = 10 * Math.random();
+  let waveFrequency = 10 - Math.random()*8;
+  let waveAmplitude = 0.3 * Math.random();
 
   const particles = new Array(CONFIG['numParticles'].value);
   
@@ -376,11 +387,13 @@ function restartAnimation() {
   particleWaves = [];
   particleWaves.length = 0;
   waveCount = 0;
-  
-  ctx.fillStyle = '#000000';
+  frameCounter = 0;
+
+  ctx.fillStyle = CONFIG['backgroundColor'];
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  startAnimation();
+  isPlaying = true;
+  animationID = requestAnimationFrame(animate);
 }
 
 // Image handling
@@ -389,8 +402,8 @@ let currentImage = null;
 const handleResize = _.debounce(() => {
   if (!currentImage) return;
   
-  const maxWidth = window.innerWidth * 0.8;
-  const maxHeight = window.innerHeight * 0.8;
+  const maxWidth = window.innerWidth * maxCanvasSize;
+  const maxHeight = window.innerHeight * maxCanvasSize;
   
   const widthRatio = maxWidth / currentImage.width;
   const heightRatio = maxHeight / currentImage.height;
@@ -441,24 +454,13 @@ fileInput.addEventListener('change', (e) => {
       
       edgeData = detectEdges(imageData);
       
-      // Reset all animation state
-      particleWaves.length = 0;
-      waveCount = 0;
-
-      startAnimation();
-      
+      restartAnimation();
   };
   currentImage.src = URL.createObjectURL(file);
 });
 
-function startAnimation(){
-  isPlaying = true;
-  frameCounter = 0;
-  createParticleWave();
-  animationID = requestAnimationFrame(animate);
-}
-
 // Start animation immediately
 initGUI();
 setupEventListeners();
-startAnimation();
+isPlaying = true;
+animationID = requestAnimationFrame(animate);
