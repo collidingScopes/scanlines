@@ -33,6 +33,22 @@
         </div>
 
         <canvas id="canvas" width="800" height="600"></canvas>
+        
+        <div id="debugViews" class="debug-container">
+            <div class="debug-view">
+                <h3>Original Image</h3>
+                <canvas id="originalCanvas"></canvas>
+            </div>
+            <div class="debug-view">
+                <h3>Processed Image</h3>
+                <canvas id="processedCanvas"></canvas>
+            </div>
+            <div class="debug-view">
+                <h3>Edge Detection</h3>
+                <canvas id="edgeCanvas"></canvas>
+            </div>
+        </div>
+        
         <div id="videoRecordingMessageDiv" class="hidden sticky-bottom">
           Video recording underway. Press menu button or "v" to stop. The video will save to your downloads folder after.
         </div>
@@ -40,7 +56,8 @@
     </div>
 
 </body>
-    
+
+<script src="inputImageFunctions.js"></script>
 <script src="mp4-muxer-main/build/mp4-muxer.js"></script>
 <script src="canvasVideoExport.js"></script>
 <script src="main.js"></script>

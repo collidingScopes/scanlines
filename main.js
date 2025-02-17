@@ -2,8 +2,6 @@
 To do:
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
 - Need to improve consistency of frame rate, and edge detection logic / control
-- When particles pass through an edge, they should take on the shape of the edge they passed through (freeze for a few frames?)
-- improve default parameters
 - Toggle to show all image edge thresholds upon startup or not
 - readme / github / description
 - about / footer divs
@@ -11,10 +9,7 @@ To do:
 - randomize inputs button
 - add emoji buttons underneath canvas (similar to particular drift)
 - can we delete particle waves once they reach the end of the canvas to improve performance?
-- reorder functions more logically (main functions, helper functions, etc.)
-- can images be pre-processed to increase contrast / remove noise / sharpen / highlight edges
-- Underneath the canvas, show original input image, and then pre-processed image, and then show edge detection result
-- Use that to try to find optimal parameters for the blurring / contrast / edge threshold
+- project naming (from dust to dust, scanlines, other?)
 */
 
 // Canvas setup
@@ -37,7 +32,6 @@ let frameCounter = 0;
 const MAX_WAVES = 200;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
-const maxCanvasSize = 0.8;
 const COOLDOWN_PIXELS = 50;
 const COOLDOWN_FRAMES = 100;
 
@@ -137,64 +131,6 @@ function updateConfig(key, value) {
 
 }
 
-function togglePlayPause(){
-  if(isPlaying){
-    cancelAnimationFrame(animationID);
-    console.log("Pause");
-  } else {
-    animationID = requestAnimationFrame(animate);
-    console.log("Play");
-  }
-  isPlaying = !isPlaying;
-}
-
-function randomizeInputs(){
-
-}
-
-function setupEventListeners() {
-  // imageInput.addEventListener('change', handleImageUpload);
-  // document.getElementById('restartBtn').addEventListener('click', () => safeRestartAnimation());
-  // document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
-  // document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
-  // document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
-
-  //shortcut hotkey presses
-  document.addEventListener('keydown', function(event) {
-    
-    if (event.key === 's') {
-      saveImage();
-    } else if (event.key === 'v') {
-      toggleVideoRecord();
-    } else if (event.code === 'Space') {
-      event.preventDefault();
-      togglePlayPause();
-    } else if(event.key === 'Enter'){
-      restartAnimation();
-    } else if(event.key === 'r'){
-      randomizeInputs();
-    } else if(event.key === 'u'){
-      fileInput.click();
-    }
-    
-  });
-
-}
-
-// Create default edge data
-function createDefaultEdgeData() {
-    const data = new Uint8ClampedArray(canvas.width * canvas.height * 4);
-    // Fill with white (255) to allow particles to move freely
-    for (let i = 0; i < data.length; i += 4) {
-        data[i] = data[i + 1] = data[i + 2] = 255;
-        data[i + 3] = 255;
-    }
-    return data;
-}
-
-// Initialize with default edge data
-edgeData = createDefaultEdgeData();
-
 // Particle class
 class Particle {
   constructor(waveIndex, particleIndex, waveFrequency, waveAmplitude) {
@@ -233,7 +169,7 @@ class Particle {
       }
 
       let hasCollision = false;
-      let maxAccumulation = 10;
+      let maxAccumulation = 5;
 
       // Check for edges based on direction
       // look "ahead" by one pixel to create a particle build-up effect
@@ -263,8 +199,10 @@ class Particle {
               (CONFIG.startPosition === 'Top' && this.y > minDistance) ||
               (CONFIG.startPosition === 'Bottom' && this.y < canvas.height - minDistance)
           );
-
-          if (edgeIntensity < (255 - CONFIG['edgeThreshold'].value) && isPassedMinDistance) {
+          
+          if (edgeIntensity > CONFIG['edgeThreshold'].value && isPassedMinDistance) {
+          //if (edgeIntensity > 0 && isPassedMinDistance) {
+          //if (edgeIntensity < (255 - CONFIG['edgeThreshold'].value) && isPassedMinDistance) {
               if (!this.onCooldown && Math.random() < CONFIG['frozenProbability'].value) {
                   this.frozen = true;
                   return;
@@ -279,26 +217,51 @@ class Particle {
 
       // Move the particle
       if (!this.frozen) {
-          let moveAmount = 1 * CONFIG['animationSpeed'].value * (canvas.width*0.001);
+        let moveAmount = 1 * CONFIG['animationSpeed'].value * (canvas.width*0.001);
+        let collisionShiftAmount = 0;
 
-          if(this.collisionHistory){
-              moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * 
-                  (Math.sin((frameCounter/4+this.getPositionForWave())/this.waveFrequency));
+        // Slight oscillation for particles that previously had a collision
+        let waveStrength = 0.35;
+        if(this.collisionHistory){
+            moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * 
+                (Math.sin((frameCounter/2+this.getPositionForWave())/this.waveFrequency))
+                * waveStrength;
+        }
+
+        // One-time movement upon collision -- keep the same shape as the edge
+        let maxShift = 650;
+        let shiftOffset = 160;
+        if(hasCollision){
+            switch (CONFIG.startPosition) {
+              case 'Left':
+                collisionShiftAmount = Math.max(0, maxShift * (this.x/canvas.width) - shiftOffset);
+                break;
+              case 'Right':
+                collisionShiftAmount = Math.max(0, maxShift * ((canvas.width-this.x)/canvas.width) - shiftOffset);
+                break;
+              case 'Top':
+                collisionShiftAmount = Math.max(0, maxShift * (this.y/canvas.height) - shiftOffset);
+                break;
+              case 'Bottom':
+                collisionShiftAmount = Math.max(0, maxShift * ((canvas.height-this.y)/canvas.height) - shiftOffset);
+                break;
           }
+          
+        }
 
           // Apply movement based on direction
           switch (CONFIG.startPosition) {
               case 'Left':
-                  this.x += moveAmount;
+                  this.x += moveAmount + collisionShiftAmount;
                   break;
               case 'Right':
-                  this.x -= moveAmount;
+                  this.x -= moveAmount + collisionShiftAmount;
                   break;
               case 'Top':
-                  this.y += moveAmount;
+                  this.y += moveAmount + collisionShiftAmount;
                   break;
               case 'Bottom':
-                  this.y -= moveAmount;
+                  this.y -= moveAmount + collisionShiftAmount;
                   break;
           }
           
@@ -356,19 +319,6 @@ class Particle {
   }
 }
 
-function hexToRGBArray(hexColor){
-    // Remove the # if present
-    hexColor = hexColor.replace(/^#/, '');
-    
-    // Parse the hex values
-    const r = parseInt(hexColor.substring(0, 2), 16);
-    const g = parseInt(hexColor.substring(2, 4), 16);
-    const b = parseInt(hexColor.substring(4, 6), 16);
-    
-    return [r, g, b];
-}
-
-// Wave creation
 function createParticleWave() {
   let waveFrequency = 12 - Math.random()*10;
   let waveAmplitude = 0.3 * Math.random() + 0.05;
@@ -400,7 +350,7 @@ function detectEdges(imageData) {
   const stride = width * 4;
   
   // Threshold for considering a difference significant
-  const edgeDiffThreshold = 20;
+  const edgeDiffThreshold = CONFIG['edgeThreshold'].value;
 
   // Single-pass edge detection
   for (let y = 1; y < height - 1; y++) {
@@ -418,11 +368,17 @@ function detectEdges(imageData) {
           const diffY = Math.abs(gray - bottom);
           const maxDiff = Math.max(diffX, diffY);
           
+          /*
           // Map the difference to a 0-255 range where 0 represents strong edges
           // and 255 represents no edge
-          const edgeStrength = maxDiff > edgeDiffThreshold ? 
-              Math.max(0, 255 - (maxDiff * 2)) : 255;
-          
+          //const edgeStrength = maxDiff > edgeDiffThreshold ?
+              Math.min(255, (maxDiff * 4)) : 0; 
+              //Math.max(0, 255 - (maxDiff * 2)) : 255;
+          */
+
+          // Strong binary threshold - either edge or no edge
+          const edgeStrength = maxDiff > edgeDiffThreshold ? 255 : 0;
+
           output[idx] = output[idx + 1] = output[idx + 2] = edgeStrength;
           output[idx + 3] = 255;
       }
@@ -471,236 +427,99 @@ function restartAnimation() {
   animationID = requestAnimationFrame(animate);
 }
 
-// Image handling
-let currentImage = null;
+//HELPER FUNCTIONS
 
-const handleResize = _.debounce(() => {
-  if (!currentImage) return;
-  
-  const maxWidth = window.innerWidth * maxCanvasSize;
-  const maxHeight = window.innerHeight * maxCanvasSize;
-  
-  const newDimensions = calculateNewDimensions(
-    currentImage.width,
-    currentImage.height,
-    maxWidth,
-    maxHeight
-  );
-  
-  canvas.width = newDimensions.width;
-  canvas.height = newDimensions.height;
-  
-  ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  edgeData = detectEdges(imageData);
-  
-  console.log("Canvas size: " + canvas.width + ", " + canvas.height);
-  console.log("Dimensions divisible by 4:", canvas.width % 4 === 0, canvas.height % 4 === 0);
-
-  restartAnimation();
-}, 250);
-
-// Debounced restart function for slider changes
-const debouncedRestart = _.debounce(() => {
-  if (isPlaying) {
-      restartAnimation();
-  }
-}, 250);
-
-// Event Listeners
-window.addEventListener('resize', handleResize);
-
-// Update the file input event listener
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  currentImage = new Image();
-  currentImage.onload = () => {
-    const maxWidth = window.innerWidth * maxCanvasSize;
-    const maxHeight = window.innerHeight * maxCanvasSize;
-    
-    const newDimensions = calculateNewDimensions(
-      currentImage.width,
-      currentImage.height,
-      maxWidth,
-      maxHeight
-    );
-    
-    canvas.width = newDimensions.width;
-    canvas.height = newDimensions.height;
-
-    ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
-    console.log("Canvas size: " + canvas.width + ", " + canvas.height);
-    console.log("Dimensions divisible by 4:", canvas.width % 4 === 0, canvas.height % 4 === 0);
-    
-    // Process the image to enhance edges
-    imageData = processImage(imageData);
-    
-    // Apply the processed image back to the canvas
-    ctx.putImageData(imageData, 0, 0);
-
-    edgeData = detectEdges(imageData);
-    
-    restartAnimation();
-  };
-  currentImage.src = URL.createObjectURL(file);
-});
-
-// Update the loadDefaultImage function
-function loadDefaultImage() {
-  currentImage = new Image();
-  currentImage.onload = () => {
-    const maxWidth = window.innerWidth * maxCanvasSize;
-    const maxHeight = window.innerHeight * maxCanvasSize;
-    
-    const newDimensions = calculateNewDimensions(
-      currentImage.width,
-      currentImage.height,
-      maxWidth,
-      maxHeight
-    );
-    
-    canvas.width = newDimensions.width;
-    canvas.height = newDimensions.height;
-
-    console.log("Canvas size: " + canvas.width + ", " + canvas.height);
-    console.log("Dimensions divisible by 4:", canvas.width % 4 === 0, canvas.height % 4 === 0);
-
-    ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
-    // Process the image to enhance edges
-    imageData = processImage(imageData);
-
-    // Apply the processed image back to the canvas
-    ctx.putImageData(imageData, 0, 0);
-
-    edgeData = detectEdges(imageData);
-    
-    isPlaying = true;
+function togglePlayPause(){
+  if(isPlaying){
+    cancelAnimationFrame(animationID);
+    console.log("Pause");
+  } else {
     animationID = requestAnimationFrame(animate);
+    console.log("Play");
+  }
+  isPlaying = !isPlaying;
+}
+
+function randomizeInputs(){
+
+}
+
+function setupEventListeners() {
+  // imageInput.addEventListener('change', handleImageUpload);
+  // document.getElementById('restartBtn').addEventListener('click', () => safeRestartAnimation());
+  // document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
+  // document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
+  // document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
+
+  //shortcut hotkey presses
+  document.addEventListener('keydown', function(event) {
+    
+    if (event.key === 's') {
+      saveImage();
+    } else if (event.key === 'v') {
+      toggleVideoRecord();
+    } else if (event.code === 'Space') {
+      event.preventDefault();
+      togglePlayPause();
+    } else if(event.key === 'Enter'){
+      restartAnimation();
+    } else if(event.key === 'r'){
+      randomizeInputs();
+    } else if(event.key === 'u'){
+      fileInput.click();
+    }
+    
+  });
+
+}
+
+function hexToRGBArray(hexColor){
+  // Remove the # if present
+  hexColor = hexColor.replace(/^#/, '');
+  
+  // Parse the hex values
+  const r = parseInt(hexColor.substring(0, 2), 16);
+  const g = parseInt(hexColor.substring(2, 4), 16);
+  const b = parseInt(hexColor.substring(4, 6), 16);
+  
+  return [r, g, b];
+}
+
+function updateDebugViews(inputImage) {
+  const scale = 0.6; // Scale debug views to 30% of original size
+  const debugCanvases = {
+      original: document.getElementById('originalCanvas'),
+      processed: document.getElementById('processedCanvas'),
+      edge: document.getElementById('edgeCanvas')
   };
-  currentImage.src = 'assets/sun.jpg';
-}
-
-function roundToDivisibleByFour(num) {
-  return Math.floor(num / 4) * 4;
-}
-
-// Function to calculate new dimensions that maintain aspect ratio and are divisible by 4
-function calculateNewDimensions(originalWidth, originalHeight, maxWidth, maxHeight) {
-  let widthRatio = maxWidth / originalWidth;
-  let heightRatio = maxHeight / originalHeight;
-  let scale = Math.min(widthRatio, heightRatio);
   
-  // Initial scaled dimensions
-  let scaledWidth = originalWidth * scale;
-  let scaledHeight = originalHeight * scale;
-  
-  // Round to nearest multiple of 4
-  let finalWidth = roundToDivisibleByFour(scaledWidth);
-  let finalHeight = roundToDivisibleByFour(scaledHeight);
-  
-  // Ensure we don't exceed max dimensions
-  while (finalWidth > maxWidth || finalHeight > maxHeight) {
-    finalWidth = roundToDivisibleByFour(finalWidth - 4);
-    finalHeight = roundToDivisibleByFour(finalHeight - 4);
-  }
-  
-  return { width: finalWidth, height: finalHeight };
-}
-
-function processImage(imageData) {
-  const width = imageData.width;
-  const height = imageData.height;
-  const data = new Uint8ClampedArray(imageData.data);
-  
-  // Step 1: Convert to grayscale and increase contrast
-  for (let i = 0; i < data.length; i += 4) {
-      // Convert to grayscale using luminance weights
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      
-      // Increase contrast using a sigmoid function
-      const contrast = 255 / (1 + Math.exp(-0.01 * (gray - 200)));
-      
-      data[i] = data[i + 1] = data[i + 2] = contrast;
-      data[i + 3] = 255; // Alpha channel
-  }
-  
-  // Step 2: Apply Gaussian blur to reduce noise
-  const blurredData = applyGaussianBlur(data, width, height);
-  
-  // Step 3: Apply unsharp masking for edge enhancement
-  const sharpenedData = applyUnsharpMask(data, blurredData);
-  
-  return new ImageData(sharpenedData, width, height);
-}
-
-function applyGaussianBlur(data, width, height) {
-  const output = new Uint8ClampedArray(data.length);
-  const kernel = [
-      [1,  4,  6,  4, 1],
-      [4, 16, 24, 16, 4],
-      [6, 24, 36, 24, 6],
-      [4, 16, 24, 16, 4],
-      [1,  4,  6,  4, 1]
-  ];
-  const kernelSum = 256; // Sum of all kernel values
-  
-  for (let y = 2; y < height - 2; y++) {
-      for (let x = 2; x < width - 2; x++) {
-          let r = 0, g = 0, b = 0;
-          
-          // Apply convolution kernel
-          for (let ky = -2; ky <= 2; ky++) {
-              for (let kx = -2; kx <= 2; kx++) {
-                  const kernelY = ky + 2;
-                  const kernelX = kx + 2;
-                  
-                  if (kernelY >= 0 && kernelY < 5 && kernelX >= 0 && kernelX < 5) {
-                      const idx = ((y + ky) * width + (x + kx)) * 4;
-                      const weight = kernel[kernelY][kernelX];
-                      
-                      r += data[idx] * weight;
-                      g += data[idx + 1] * weight;
-                      b += data[idx + 2] * weight;
-                  }
-              }
-          }
-          
-          const idx = (y * width + x) * 4;
-          output[idx] = r / kernelSum;
-          output[idx + 1] = g / kernelSum;
-          output[idx + 2] = b / kernelSum;
-          output[idx + 3] = 255;
+  // Set canvas sizes
+  Object.values(debugCanvases).forEach(canvas => {
+      if (canvas) {
+          canvas.width = Math.floor(inputImage.width * scale);
+          canvas.height = Math.floor(inputImage.height * scale);
       }
-  }
-  
-  return output;
+  });
+
+  // Draw original image
+  const originalCtx = debugCanvases.original.getContext('2d', { 
+    willReadFrequently: true,
+    alpha: false,
+  });
+  originalCtx.drawImage(inputImage, 0, 0, debugCanvases.original.width, debugCanvases.original.height);
+
+  // Draw processed image (after grayscale and contrast)
+  const processedCtx = debugCanvases.processed.getContext('2d');
+  const processedImageData = processImage(originalCtx.getImageData(0, 0, debugCanvases.original.width, debugCanvases.original.height));
+  processedCtx.putImageData(processedImageData, 0, 0);
+
+  // Draw edge detection result
+  const edgeCtx = debugCanvases.edge.getContext('2d');
+  const edgeImageData = detectEdges(processedImageData);
+  edgeCtx.putImageData(new ImageData(edgeImageData, debugCanvases.edge.width, debugCanvases.edge.height), 0, 0);
 }
 
-
-function applyUnsharpMask(originalData, blurredData) {
-  const output = new Uint8ClampedArray(originalData.length);
-  const amount = 2; // Sharpening intensity
-  
-  for (let i = 0; i < originalData.length; i += 4) {
-      // Calculate the difference between original and blurred
-      for (let j = 0; j < 3; j++) {
-          const idx = i + j;
-          const diff = originalData[idx] - blurredData[idx];
-          // Apply sharpening and ensure values stay within 0-255
-          output[idx] = Math.min(255, Math.max(0, originalData[idx] + amount * diff));
-      }
-      output[i + 3] = 255; // Alpha channel
-  }
-  
-  return output;
-}
-
+//MAIN METHOD
 // Start animation immediately
 initGUI();
 setupEventListeners();
