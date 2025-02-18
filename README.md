@@ -2,6 +2,8 @@
 
 Turn images into synthwave / cyberpunk animations! An open source tool that creates dynamic, stylized animations from static images using particle waves and edge detection. Runs in real-time in the browser.
 
+<img src="/assets/offPhase.gif">
+
 ## Live Demo
 
 Live demo: https://collidingScopes.github.io/scanlines
