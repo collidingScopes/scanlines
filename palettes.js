@@ -1,0 +1,30 @@
+//name, particle color, edge color, background color
+let palettes =
+{
+  noir: ["#000000", "#FFFFFF", "#171717"],
+  crimson: ["#bf0e0e", "#eabcbc", "#190303"],
+  sea: ["#2f5575", "#94f0dc", "#030f19"],
+  cherry: ["#f1faee", "#e63946", "#030f19"],
+  maroon: ["#510a1f", "#f6e3c7", "#1e0523"],
+  //copper: ["#92522c", "#e2b8af", "#371c04"],
+  foam: ["#780C28", "#EAFAEA", "#030f19"],
+  retro: ["#eac44b", "#9c3434", "#032b19"],
+  galaxy: ["#6561ba", "#dda290", "#030f19"],
+  ink: ["#441752", "#EFB6C8", "#030f19"],
+  blackberry: ["#21062b", "#e78686", "#762f2f"],
+  emerald: ["#23c795", "#c2efd2", "#0b1903"],
+  slate: ["#ddc1a1", "#1c1c1c", "#602c2c"],
+  sakura: ["#FFB3A7", "#C93756", "#030f19"],
+  indigo: ["#22117c", "#EAFAEA", "#030f19"],
+  night: ["#FF2A6D", "#05D9E8", "#01012B"],
+  hologram: ["#FF3864", "#1FFFFF", "#120458"],
+  matrix: ["#d7ddb9", "#16d63d", "#060d02"],
+  vr: ["#9D72FF", "#FFD84F", "#1A0B2E"],
+  dystopia: ["#FF1B6B", "#45CAFF", "#140021"],
+  datastream: ["#00FF9F", "#00B8FF", "#000B14"],
+  cyber: ["#FF71CE", "#01CDFE", "#050236"],
+  gridline: ["#FE75FE", "#4DEEEA", "#0A1128"],
+  laserpoint: ["#F706CF", "#05FFA1", "#000B14"],
+  rift: ["#7400FF", "#FF00E5", "#090422"],
+};
+const paletteNames = Object.keys(palettes);

@@ -1,15 +1,11 @@
 /*
 To do:
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
-- Need to improve consistency of frame rate, and edge detection logic / control
-- Toggle to show all image edge thresholds upon startup or not
-- readme / github / description
-- about / footer divs
-- add color palette selections
-- randomize inputs button
-- add emoji buttons underneath canvas (similar to particular drift)
 - can we delete particle waves once they reach the end of the canvas to improve performance?
-- project naming (from dust to dust, scanlines, other?)
+- Need to improve edge detection logic / control
+- readme / github / description
+- mobile testing
+- button to show/hide image debug views
 */
 
 // Canvas setup
@@ -40,15 +36,15 @@ let isPlaying = false;
 
 // Configuration
 let gui = new dat.gui.GUI( { autoPlace: false } );
-//gui.close();
-let guiOpenToggle = true;
+gui.close();
+let guiOpenToggle = false;
 const CONFIG = {
-    animationSpeed: { value: 0.7, min: 0.1, max: 2.0, step: 0.1 },
-    waveInterval: { value: 100, min: 40, max: 300, step: 1 },
-    numParticles: { value: 250, min: 50, max: 400, step: 1 },
+    animationSpeed: { value: 0.7, min: 0.3, max: 2.0, step: 0.1 },
+    waveInterval: { value: 100, min: 30, max: 200, step: 1 },
+    numParticles: { value: 250, min: 70, max: 400, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
-    particleSize: { value: 1, min: 0.5, max: 2.0, step: 0.1 },
+    particleSize: { value: 1, min: 0.8, max: 2.0, step: 0.1 },
     edgeThreshold: { value: 50, min: 1, max: 250, step: 1 },
     startPosition: 'Top',
     selectedPalette: 'galaxy',
@@ -69,6 +65,19 @@ function initGUI() {
       updateConfig('startPosition', v);
       restartAnimation();
   });
+
+  chooseRandomPalette();
+
+  // Add palette selector
+  window.guiControllers.selectedPalette = gui.add(CONFIG, 'selectedPalette', paletteNames)
+      .name('Color Palette')
+      .onChange(value => {
+          const [particleColor, edgeColor] = palettes[value];
+          CONFIG.particleColor = particleColor;
+          CONFIG.edgeColor = edgeColor;
+          updateConfig('particleColor', particleColor);
+          updateConfig('edgeColor', edgeColor);
+      });
 
   // Add individual color controls
   window.guiControllers.particleColor = gui.addColor(CONFIG, 'particleColor')
@@ -92,6 +101,7 @@ function initGUI() {
       }
   });
 
+  /*
   gui.add({ togglePlayPause }, 'togglePlayPause').name('Pause/Play (space)');
   gui.add({ restartAnimation }, 'restartAnimation').name('Restart Animation (enter)');
   gui.add({ randomize: randomizeInputs }, 'randomize').name('Randomize Inputs (r)');
@@ -110,6 +120,7 @@ function initGUI() {
     toggleVideoRecord();
   };
   gui.add(CONFIG, 'saveVideo').name("Video Export (v)");
+  */
   
   customContainer = document.getElementById('gui');
   customContainer.appendChild(gui.domElement);
@@ -200,7 +211,7 @@ class Particle {
               (CONFIG.startPosition === 'Bottom' && this.y < canvas.height - minDistance)
           );
           
-          if (edgeIntensity > CONFIG['edgeThreshold'].value && isPassedMinDistance) {
+          if (edgeIntensity > 0 && isPassedMinDistance) {
           //if (edgeIntensity > 0 && isPassedMinDistance) {
           //if (edgeIntensity < (255 - CONFIG['edgeThreshold'].value) && isPassedMinDistance) {
               if (!this.onCooldown && Math.random() < CONFIG['frozenProbability'].value) {
@@ -230,7 +241,12 @@ class Particle {
 
         // One-time movement upon collision -- keep the same shape as the edge
         let maxShift = 650;
-        let shiftOffset = 160;
+        if(CONFIG.startPosition == "Top" || CONFIG.startPosition == "Bottom"){
+          maxShift = canvas.height;
+        } else {
+          maxShift = canvas.width;
+        }
+        let shiftOffset = maxShift*0.35;
         if(hasCollision){
             switch (CONFIG.startPosition) {
               case 'Left':
@@ -367,17 +383,9 @@ function detectEdges(imageData) {
           const diffX = Math.abs(gray - right);
           const diffY = Math.abs(gray - bottom);
           const maxDiff = Math.max(diffX, diffY);
-          
-          /*
-          // Map the difference to a 0-255 range where 0 represents strong edges
-          // and 255 represents no edge
-          //const edgeStrength = maxDiff > edgeDiffThreshold ?
-              Math.min(255, (maxDiff * 4)) : 0; 
-              //Math.max(0, 255 - (maxDiff * 2)) : 255;
-          */
 
           // Strong binary threshold - either edge or no edge
-          const edgeStrength = maxDiff > edgeDiffThreshold ? 255 : 0;
+          const edgeStrength = maxDiff >= edgeDiffThreshold ? 255 : 0;
 
           output[idx] = output[idx + 1] = output[idx + 2] = edgeStrength;
           output[idx + 3] = 255;
@@ -441,15 +449,50 @@ function togglePlayPause(){
 }
 
 function randomizeInputs(){
+    // Helper function to get random number between min and max
+    const getRandomValue = (min, max, step) => {
+      const steps = Math.floor((max - min) / step);
+      return min + (Math.floor(Math.random() * steps) * step);
+  };
 
+  // Randomize numeric parameters
+  const numericParams = {
+      'animationSpeed': CONFIG.animationSpeed,
+      'waveInterval': CONFIG.waveInterval,
+      'numParticles': CONFIG.numParticles,
+      'frozenProbability': CONFIG.frozenProbability,
+      'turbulence': CONFIG.turbulence,
+      'particleSize': CONFIG.particleSize
+  };
+
+  // Update each numeric parameter
+  for (const [param, config] of Object.entries(numericParams)) {
+      const newValue = getRandomValue(config.min, config.max, config.step);
+      CONFIG[param].value = newValue;
+      if (window.guiControllers[param]) {
+          window.guiControllers[param].setValue(newValue);
+      }
+  }
+
+  // Randomize start position
+  const positions = ['Left', 'Right', 'Top', 'Bottom'];
+  const randomPosition = positions[Math.floor(Math.random() * positions.length)];
+  CONFIG.startPosition = randomPosition;
+  if (window.guiControllers.startPosition) {
+      window.guiControllers.startPosition.setValue(randomPosition);
+  }
+
+  chooseRandomPalette();
+
+  // Restart the animation to apply changes
+  restartAnimation();
 }
 
 function setupEventListeners() {
-  // imageInput.addEventListener('change', handleImageUpload);
-  // document.getElementById('restartBtn').addEventListener('click', () => safeRestartAnimation());
-  // document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
-  // document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
-  // document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
+  document.getElementById('restartBtn').addEventListener('click', () => restartAnimation());
+  document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
+  document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
+  document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
 
   //shortcut hotkey presses
   document.addEventListener('keydown', function(event) {
@@ -467,6 +510,8 @@ function setupEventListeners() {
       randomizeInputs();
     } else if(event.key === 'u'){
       fileInput.click();
+    } else if(event.key === 'c'){
+      chooseRandomPalette();
     }
     
   });
@@ -517,6 +562,35 @@ function updateDebugViews(inputImage) {
   const edgeCtx = debugCanvases.edge.getContext('2d');
   const edgeImageData = detectEdges(processedImageData);
   edgeCtx.putImageData(new ImageData(edgeImageData, debugCanvases.edge.width, debugCanvases.edge.height), 0, 0);
+}
+
+function chooseRandomPalette(){
+  // Randomly select an initial palette
+  const randomPaletteName = paletteNames[Math.floor(Math.random() * paletteNames.length)];
+  
+  const [particleColor, edgeColor, backgroundColor] = palettes[randomPaletteName];
+  CONFIG.selectedPalette = randomPaletteName;
+  CONFIG.particleColor = particleColor;
+  CONFIG.edgeColor = edgeColor;
+  CONFIG.backgroundColor = backgroundColor;
+  updateConfig('particleColor', particleColor);
+  updateConfig('edgeColor', edgeColor);
+  updateConfig('backgroundColor', backgroundColor);
+
+  // Update GUI controllers
+  if (window.guiControllers.selectedPalette) {
+    window.guiControllers.selectedPalette.setValue(randomPaletteName);
+  }
+  if (window.guiControllers.particleColor) {
+    window.guiControllers.particleColor.setValue(particleColor);
+  }
+  if (window.guiControllers.edgeColor) {
+    window.guiControllers.edgeColor.setValue(edgeColor);
+  }
+  if (window.guiControllers.backgroundColor) {
+    window.guiControllers.backgroundColor.setValue(backgroundColor);
+  }
+
 }
 
 //MAIN METHOD

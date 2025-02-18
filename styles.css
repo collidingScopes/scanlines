@@ -4,7 +4,7 @@ body {
   /* display: flex;
   flex-direction: column; */
   /* align-items: center; */
-  background-color: #000000;
+  background-color: #151632;
   color: #6f9fff;
   font-family: 'Courier New', monospace;
   min-height: 100vh;
@@ -35,6 +35,7 @@ body {
 }
 
 #canvas {
+  margin-top: 10px;
   border: 1px solid #bcbcbc;
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
   background-color: #000000;
@@ -55,12 +56,12 @@ body {
   font-family: 'Courier New', monospace;
   text-transform: uppercase;
   letter-spacing: 2px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   box-shadow: 0 0 10px rgba(111, 159, 255, 0.2);
 }
 
 .gui-button:hover {
-  background-color: rgba(111, 159, 255, 0.1);
+  background-color: rgba(18, 72, 181, 0.5);
   box-shadow: 0 0 15px rgba(111, 159, 255, 0.4);
 }
 
@@ -111,7 +112,7 @@ body {
 
 #aboutText{
   font-size: 52px;
-  font-family: "Kage Retro";
+  font-family: "Retronoid";
   font-weight: 400;
   font-style: normal;
   display:block;
@@ -130,6 +131,7 @@ body {
   /*border-top: 5px solid #581845;*/
   background-color: #151632;
   color: white;
+  font-family: Helvetica, Arial, sans-serif;
 }
 
 #textBox {
@@ -306,6 +308,12 @@ td {
   width: 100%;
 }
 
+.icon {
+  padding: 3.5px;
+  margin: 8px 2px 8px 2px;
+  font-size: 1.6em;
+}
+
 /*floating loading screen*/
 .lockOn {
   display: block;
@@ -366,9 +374,9 @@ a, a:visited{
   display: flex;
   justify-content: space-around;
   width: 100%;
-  margin: 20px 0;
-  gap: 20px;
-  padding: 0 20px;
+  margin: 0;
+  gap: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 

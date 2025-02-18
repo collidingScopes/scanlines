@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanlines: Edge Detection with Wave Interactions</title>
+    <title>Scanlines: synthwave / cyberpunk animator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
 
-    <meta property="og:title" content="Particular Drift" />
-    <meta property="og:description" content="Turn images into flowing particle animations" />
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://db.onlinewebfonts.com/c/a452b244ed475a0dec5c9be1977d63da?family=Retronoid" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <meta property="og:title" content="Scanlines" />
+    <meta property="og:description" content="Turn images into synthwave / cyberpunk animations" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://particular-drift.netlify.app" />
+    <meta property="og:url" content="https://collidingscopes.github.io/scanlines" />
     <meta property="og:image" content="https://collidingscopes.github.io/particular-drift/assets/siteOGImage.png">
     <meta property="og:image:type" content="image/png" >
     <meta property="og:image:width" content="784" >
@@ -27,13 +30,34 @@
     <div id="gui"></div>
     <div class="container">
 
-        <div class="file-input-container">
-            <label for="fileInput" class="gui-button">Upload Image</label>
-            <input type="file" id="fileInput" accept="image/*">
-        </div>
-
         <canvas id="canvas" width="800" height="600"></canvas>
         
+        <table id="buttonTable">
+            <tr>
+                <td>
+                  <button id="randomizeBtn" class="gui-button icon" title="Randomize All Inputs">🎲</button>
+                </td>
+      
+                <td>
+                  <button id="randomizeColorBtn" class="gui-button icon" title="Randomize Colors">🎨</button>
+                </td>
+      
+                <td>
+                    <button id="restartBtn" class="gui-button icon" title="Restart Animation">🔄</button>
+                </td>
+      
+                <td>
+                  <label for="fileInput" class="gui-button">Upload Image</label>
+                  <input type="file" id="fileInput" accept="image/*">      
+                </td>
+      
+                <td>
+                  <button id="exportVideoBtn" class="gui-button icon" title="Export Video">🎥</button>
+                </td>
+                
+            </tr>
+        </table>
+
         <div id="debugViews" class="debug-container">
             <div class="debug-view">
                 <h3>Original Image</h3>
@@ -48,15 +72,70 @@
                 <canvas id="edgeCanvas"></canvas>
             </div>
         </div>
-        
+
         <div id="videoRecordingMessageDiv" class="hidden sticky-bottom">
           Video recording underway. Press menu button or "v" to stop. The video will save to your downloads folder after.
         </div>
 
     </div>
 
+    <div id="notesDiv">
+        <div id="textBox">
+  
+            <h2 id="aboutText">〰️SCAN-LINES〰️</h2>
+  
+            <p>Turn images into synthwave / cyberpunk animations! Upload a photo, then use the controls to adjust the colors, speed, wave starting position / frequency, turbulence, attraction strength, and more.</p>
+            <p>Click the 🎲 button underneath the canvas to randomize all input parameters, this can give interesting colour / movement styles. You can then open the controls at the top right of the screen to fine-tune the parameters one-by-one.</p>
+            <p>How this works: particle waves are created at one edge of the canvas, and then "scan" across the canvas while searching for edges of the input image. When an edge is found, some interaction physics that will cause particles to freeze position, change color, or move as an oscillating wave.</p>
+            <p>You can export your creation as an image or video afterwards.</p>
+            <p>A few hotkeys for the pros:</p>
+            <ul>
+              <li>[r]: randomize all inputs (useful to find interesting parameters for a new image)</li>
+              <li>[c]: choose random color palette</li>
+              <li>[space]: pause/play the animation</li>
+              <li>[enter]: restart the animation</li>
+              <li>[v]: start and stop video export</li>
+              <li>[s]: save a screenshot image</li>
+              <li>[u]: upload new image</li>
+            </ul>
+            <p>This tool is completely free, open source (MIT license), without any paywalls or premium options. You are welcome to use it for personal or commercial purposes.</p>
+            <p>If you found this tool useful, feel free to buy me a coffee. This would be much appreciated during late-night coding sessions!</p>
+            
+            <a href="https://www.buymeacoffee.com/stereoDrift" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee"></a>
+  
+            <p>The code used to create the animation is quite resource-intensive, so it may run with some lag if your computer doesn't have enough computing power, too many tabs open, low battery, etc.</p>
+            <p>If the video export feature does not work for you, please try a free screen-recording tool such as OBS Studio.</p>
+  
+            <p>This project is coded using vanilla Javascript, HTML5 canvas, and CSS (<a href="https://github.com/collidingScopes/scanlines" target="_blank" rel="noopener">see github repo</a>). Video creation and encoding is done using mp4 muxer.</p>
+            <p>I do not have access to any images that you upload here, as all processing is done "client-side" (i.e., <b>no videos or images are saved/stored by me — they stay on your computer only</b>).</p>
+            <p>If you enjoyed this, you may be interested in my other free / open source projects:</p>
+            <ul>
+              <li><a href="https://collidingScopes.github.io/particular-drift" target="_blank" rel="noopener">Particular Drift</a>: turn photos into flowing particle animations</li>
+              <li><a href="https://collidingScopes.github.io/ascii" target="_blank" rel="noopener">Video-to-ASCII</a>: turn videos into ASCII pixel art</li>
+              <li><a href="https://collidingScopes.github.io/shimmer" target="_blank" rel="noopener">Shape Shimmer</a>: turn photos into funky wave animations</li>
+              <li><a href="https://collidingScopes.github.io" target="_blank" rel="noopener">Colliding Scopes</a>: turn photos into kaleidoscope animations</li>
+              <li><a href="https://collidingScopes.github.io/forcefield" target="_blank" rel="noopener">Force-Field Animation</a>: turn photos into particle animations</li>
+              <li><a href="https://manual-brick-breaker.netlify.app" target="_blank" rel="noopener">Manual Brick Breaker</a>: play brick breaker by waving your hands around</li>
+            </ul>
+            <p>Feel free to reach out to discuss, ask questions, or just to say hi! You can find me <a href="https://www.instagram.com/stereo.drift/" target="_blank" rel="noopener">@stereo.drift</a> on instagram, or through the other places below :)</p>
+        </div>
+    </div>
+  
+    <div id="linksDiv">
+      <table id="infoMenuTable">
+          <tr>
+              <td><button id="gitHubButton"class="socialMediaButton"><a href="https://github.com/collidingScopes/scanlines" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i></a></button></td>
+              <td><button id="coffeeButton" class="socialMediaButton"><a href="https://www.buymeacoffee.com/stereoDrift" target="_blank" rel="noopener"><i class="fa-solid fa-heart"></i></a></button></td>
+              <td><button id="instagramButton" class="socialMediaButton"><a href="https://www.instagram.com/stereo.drift/" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i></a></button></td>
+              <td><button id="xButton" class="socialMediaButton"><a class="x-link" href="https://x.com/measure_plan" target="_blank" rel="noopener">𝕏</i></a></button></td>
+              <td><button id="emailButton" class="socialMediaButton"><a href="mailto:stereodriftvisuals@gmail.com" target="_blank" rel="noopener"><i class="fa-solid fa-envelope"></i></a></button></td>
+          </tr>
+      </table>
+  </div>
+
 </body>
 
+<script src="palettes.js"></script>
 <script src="inputImageFunctions.js"></script>
 <script src="mp4-muxer-main/build/mp4-muxer.js"></script>
 <script src="canvasVideoExport.js"></script>
