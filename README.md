@@ -1,6 +1,6 @@
-# SCAN-LINES
+# 〰️SCAN-LINES〰️
 
-Turn images into synthwave / cyberpunk animations! An open source tool that creates dynamic, stylized animations from static images using particle waves and edge detection. Runs in real-time in the browser.
+Turn images into synthwave / cyberpunk animations! An open source tool that creates animations from static images using particle waves and edge detection. Runs in real-time in the browser.
 
 <img src="/assets/offPhase.gif">
 
