@@ -6,7 +6,7 @@ Turn images into synthwave / cyberpunk animations! An open source tool that crea
 
 ## Live Demo
 
-Live demo: https://collidingScopes.github.io/scanlines
+Live demo: <a href="https://collidingScopes.github.io/scanlines" rel="noopener" target="_blank">https://collidingScopes.github.io/scanlines</a>
 
 ## Features
 
@@ -115,10 +115,6 @@ Created by [@stereo.drift](https://www.instagram.com/stereo.drift/). Feel free t
 - Twitter: [@measure_plan](https://x.com/measure_plan)
 - Email: stereodriftvisuals@gmail.com
 
-## Support
-
-If you find this tool useful, consider [buying me a coffee](https://www.buymeacoffee.com/stereoDrift) to support late-night coding sessions!
-
 ## Related Projects
 
 If you enjoyed this, you may be interested in my other free / open source projects:
@@ -128,3 +124,8 @@ If you enjoyed this, you may be interested in my other free / open source projec
 - [Colliding Scopes](https://collidingScopes.github.io) - Kaleidoscope animations
 - [Force-Field Animation](https://collidingScopes.github.io/forcefield) - Particle-based animations
 - [Manual Brick Breaker](https://manual-brick-breaker.netlify.app) - Play brick breaker by waving around your hand
+
+## Donations
+If you found this tool useful, feel free to buy me a coffee. This would be much appreciated during late-night coding sessions!
+
+<a href="https://www.buymeacoffee.com/stereoDrift" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee"></a>
