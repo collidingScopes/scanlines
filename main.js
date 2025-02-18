@@ -3,9 +3,7 @@ To do:
 - how to improve performance / simplify calculations, so that more particles can be rendered / fps can be improved
 - can we delete particle waves once they reach the end of the canvas to improve performance?
 - Need to improve edge detection logic / control
-- readme / github / description
 - mobile testing
-- button to show/hide image debug views
 */
 
 // Canvas setup
@@ -493,7 +491,8 @@ function setupEventListeners() {
   document.getElementById('randomizeColorBtn').addEventListener('click', () => chooseRandomPalette());
   document.getElementById('randomizeBtn').addEventListener('click', () => randomizeInputs());
   document.getElementById('exportVideoBtn').addEventListener('click', () => toggleVideoRecord());
-
+  document.getElementById('toggleDebugBtn').addEventListener('click', () => toggleDebugView());
+  
   //shortcut hotkey presses
   document.addEventListener('keydown', function(event) {
     
@@ -591,6 +590,11 @@ function chooseRandomPalette(){
     window.guiControllers.backgroundColor.setValue(backgroundColor);
   }
 
+}
+
+function toggleDebugView() {
+  const debugContainer = document.getElementById('debugViews');
+  debugContainer.classList.toggle('visible');
 }
 
 //MAIN METHOD

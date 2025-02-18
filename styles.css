@@ -371,13 +371,17 @@ a, a:visited{
 
 /* Image de-bug styles */
 .debug-container {
-  display: flex;
+  display: none;  /* Hidden by default */
   justify-content: space-around;
   width: 100%;
   margin: 0;
   gap: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.debug-container.visible {
+  display: flex;  /* Show when visible class is added */
 }
 
 .debug-view {
