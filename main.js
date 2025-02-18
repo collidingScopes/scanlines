@@ -433,6 +433,7 @@ function restartAnimation() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   baseParticleSize = canvas.width/600;
+  console.log("baseParticleSize: "+baseParticleSize);
 
   isPlaying = true;
   animationID = requestAnimationFrame(animate);

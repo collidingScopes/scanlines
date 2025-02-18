@@ -36,7 +36,11 @@ const debouncedRestart = _.debounce(() => {
 }, 250);
 
 // Event Listeners
-window.addEventListener('resize', handleResize);
+if(isIOS || isAndroid){
+
+} else {
+  window.addEventListener('resize', handleResize);
+}
 
 // Update the file input event listener
 fileInput.addEventListener('change', (e) => {
@@ -114,8 +118,10 @@ function loadDefaultImage() {
     // Update debug views with the new image
     updateDebugViews(currentImage);
     
-    isPlaying = true;
-    animationID = requestAnimationFrame(animate);
+
+    //isPlaying = true;
+    //animationID = requestAnimationFrame(animate);
+    restartAnimation();
   };
   currentImage.src = 'assets/sun.jpg';
 }
