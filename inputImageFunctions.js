@@ -1,5 +1,5 @@
 // Image handling
-const maxCanvasSize = 0.85;
+const maxCanvasSize = 0.88;
 let currentImage = null;
 
 const handleResize = _.debounce(() => {

@@ -21,6 +21,7 @@ let particleWaves = [];
 let edgeData = null;
 let waveCount = 0;
 let frameCounter = 0;
+let baseParticleSize = 1;
 
 // Constants and configuration
 const MAX_WAVES = 200;
@@ -70,11 +71,13 @@ function initGUI() {
   window.guiControllers.selectedPalette = gui.add(CONFIG, 'selectedPalette', paletteNames)
       .name('Color Palette')
       .onChange(value => {
-          const [particleColor, edgeColor] = palettes[value];
+          const [particleColor, edgeColor, backgroundColor] = palettes[value];
           CONFIG.particleColor = particleColor;
           CONFIG.edgeColor = edgeColor;
+          CONFIG.backgroundColor = backgroundColor;
           updateConfig('particleColor', particleColor);
           updateConfig('edgeColor', edgeColor);
+          updateConfig('backgroundColor', backgroundColor);
       });
 
   // Add individual color controls
@@ -321,7 +324,7 @@ class Particle {
       let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
       ctx.beginPath();
-      ctx.arc(this.x, this.y, CONFIG['particleSize'].value, 0, TWO_PI);
+      ctx.arc(this.x, this.y, baseParticleSize * CONFIG['particleSize'].value, 0, TWO_PI);
 
       if (this.frozen || this.collisionHistory) {
           ctx.fillStyle = CONFIG['edgeColor'];
@@ -429,6 +432,8 @@ function restartAnimation() {
   ctx.fillStyle = CONFIG['backgroundColor'];
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
+  baseParticleSize = canvas.width/600;
+
   isPlaying = true;
   animationID = requestAnimationFrame(animate);
 }
@@ -602,3 +607,4 @@ function toggleDebugView() {
 initGUI();
 setupEventListeners();
 loadDefaultImage();
+baseParticleSize = canvas.width/600;
