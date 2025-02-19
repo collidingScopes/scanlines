@@ -31,11 +31,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 6px;
 }
 
 #canvas {
-  margin-top: 10px;
+  margin-top: 22px;
   border: 1px solid #bcbcbc;
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
   background-color: #000000;
@@ -44,7 +44,7 @@ body {
 .controls {
   display: flex;
   gap: 10px;
-  margin: 10px 0;
+  margin: 5px 0;
 }
 
 .gui-button {
@@ -111,7 +111,7 @@ body {
 }
 
 #aboutText{
-  font-size: 48px;
+  font-size: 45px;
   font-family: "Retronoid";
   font-weight: 400;
   font-style: normal;

@@ -38,7 +38,7 @@ let gui = new dat.gui.GUI( { autoPlace: false } );
 gui.close();
 let guiOpenToggle = false;
 const CONFIG = {
-    animationSpeed: { value: 0.7, min: 0.3, max: 2.0, step: 0.1 },
+    animationSpeed: { value: 0.7, min: 0.4, max: 2.0, step: 0.1 },
     waveInterval: { value: 100, min: 30, max: 200, step: 1 },
     numParticles: { value: 250, min: 70, max: 400, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
