@@ -21,14 +21,13 @@ let particleWaves = [];
 let edgeData = null;
 let waveCount = 0;
 let frameCounter = 0;
-let baseParticleSize = 1;
+let baseScaleIndex = 1;
 
 // Constants and configuration
 const MAX_WAVES = 200;
 const INTERACTION_RADIUS = 1;
 const TWO_PI = Math.PI * 2;
-const COOLDOWN_PIXELS = 50;
-const COOLDOWN_FRAMES = 100;
+const COOLDOWN_FRAMES = 150;
 
 let animationID;
 let isPlaying = false;
@@ -41,6 +40,7 @@ const CONFIG = {
     animationSpeed: { value: 0.7, min: 0.4, max: 2.0, step: 0.1 },
     waveInterval: { value: 100, min: 30, max: 200, step: 1 },
     numParticles: { value: 250, min: 70, max: 400, step: 1 },
+    trailStrength: { value: 15, min: 0, max: 30, step: 1 },
     frozenProbability: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
     turbulence: { value: 1, min: 0, max: 4, step: 0.1 },
     particleSize: { value: 1, min: 0.8, max: 2.0, step: 0.1 },
@@ -237,7 +237,7 @@ class Particle {
         if(this.collisionHistory){
             moveAmount += (this.waveAmplitude*CONFIG['turbulence'].value) * 
                 (Math.sin((frameCounter/2+this.getPositionForWave())/this.waveFrequency))
-                * waveStrength;
+                * waveStrength * baseScaleIndex;
         }
 
         // One-time movement upon collision -- keep the same shape as the edge
@@ -324,7 +324,7 @@ class Particle {
       let rgbArray = hexToRGBArray(CONFIG['particleColor']);
 
       ctx.beginPath();
-      ctx.arc(this.x, this.y, baseParticleSize * CONFIG['particleSize'].value, 0, TWO_PI);
+      ctx.arc(this.x, this.y, baseScaleIndex * CONFIG['particleSize'].value, 0, TWO_PI);
 
       if (this.frozen || this.collisionHistory) {
           ctx.fillStyle = CONFIG['edgeColor'];
@@ -396,13 +396,14 @@ function detectEdges(imageData) {
   return output;
 }
 
-// Animation
-
+// Animation loop
 function animate() {
   if (!isPlaying) return;
 
   ctx.fillStyle = CONFIG['backgroundColor'];
+  ctx.globalAlpha = (100 - (CONFIG['trailStrength'].value))/100 - 0.7;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
 
   if(frameCounter % CONFIG['waveInterval'].value == 0){
     createParticleWave();
@@ -432,8 +433,8 @@ function restartAnimation() {
   ctx.fillStyle = CONFIG['backgroundColor'];
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  baseParticleSize = canvas.width/600;
-  console.log("baseParticleSize: "+baseParticleSize);
+  baseScaleIndex = canvas.width/600;
+  console.log("baseScaleIndex: "+baseScaleIndex);
 
   isPlaying = true;
   animationID = requestAnimationFrame(animate);
@@ -464,6 +465,7 @@ function randomizeInputs(){
       'animationSpeed': CONFIG.animationSpeed,
       'waveInterval': CONFIG.waveInterval,
       'numParticles': CONFIG.numParticles,
+      'trailStrength': CONFIG.trailStrength,
       'frozenProbability': CONFIG.frozenProbability,
       'turbulence': CONFIG.turbulence,
       'particleSize': CONFIG.particleSize
@@ -608,4 +610,4 @@ function toggleDebugView() {
 initGUI();
 setupEventListeners();
 loadDefaultImage();
-baseParticleSize = canvas.width/600;
+baseScaleIndex = canvas.width/600;
