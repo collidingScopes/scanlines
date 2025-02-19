@@ -2,7 +2,7 @@
 
 Turn images into synthwave / cyberpunk animations! An open source tool that creates animations from static images using particle waves and edge detection. Runs in real-time in the browser.
 
-<img src="/assets/offPhase.gif">
+<img src="/assets/FaceID-compressed.gif">
 
 ## Live Demo
 
